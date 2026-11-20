@@ -69,7 +69,7 @@ struct Budget {
 Используется в двух задачах:
 
 1. **Валидация пары при генерации** — убедиться, что целевой актёр достижим и на какой глубине.
-2. **Проверка тупика во время партии** — есть ли путь от текущего актёра к цели за оставшиеся шаги.
+2. **Проверка тупика во время партии** — есть ли путь от текущего актёра к цели в пределах глубины поиска (лимит на число ходов игрока нет — см. §4).
 
 Обе задачи — это **ограниченный BFS** по актёрам, где каждый шаг раскрывает актёра в множество соседних актёров через фильмы.
 
@@ -244,6 +244,8 @@ struct PairGenConfig {
     maxFrontierPerActor: Int // ограничение раскрытия (top-K)
     targetSampleSize: Int    // сколько целей пробовать на одном старте
     allowTrivial: Bool       // разрешать пары с d=1
+    requireReverseReachability: Bool // бидирекциональная проверка при генерации (§5.6)
+    deadEndSearchDepth: Int          // глубина поиска в checkDeadEnd; не меньше maxSteps
 }
 ```
 
@@ -416,6 +418,8 @@ function orderByPreference(
 | `budget.maxRequests` | ~200–400 | Общий лимит на генерацию |
 | `budget.maxNodesVisited` | ~1000–2000 | Ограничение размера BFS |
 | `budget.maxWallClockMs` | 5000–8000 | Предел времени генерации |
+| `requireReverseReachability` | `false` | Опционально; дешевле отбраковывает нерешаемых кандидатов |
+| `deadEndSearchDepth` | 8 | Глубина `checkDeadEnd`; не меньше `maxSteps`, иначе отклонение игрока даёт ложный тупик |
 
 Значения вынесены в `PairGenConfig` и могут зависеть от сложности.
 
@@ -423,7 +427,9 @@ function orderByPreference(
 
 ## 4. Обработка тупиков
 
-Тупик — состояние, в котором игрок не может построить путь к цели за оставшиеся шаги. Тупики бывают трёх видов.
+Тупик — состояние, в котором от текущего актёра невозможно продолжить движение к цели. Тупики бывают трёх видов.
+
+Важно: лимит на число ходов игрока **нет** — пара гарантированно решаемая, и игрок может идти путём длиннее гарантированного (`docs/01_concept.md` §4.3, §6.18). `maxSteps` в этом разделе — глубина поиска BFS, а не бюджет ходов игрока.
 
 ### 4.1. Классификация
 
@@ -431,25 +437,23 @@ function orderByPreference(
 |---|---|---|
 | Локальный | У текущего актёра нет фильмов | `getActorMovieIds(current) = ∅` |
 | Локальный | Во всех фильмах актёра нет других актёров | `getMovieCastIds(m)` содержит только текущего |
-| Глобальный | До цели не добраться за оставшиеся шаги | `bfsShortestPath(current, target, remaining)` → `NOT_FOUND` |
+| Глобальный | От текущего актёра до цели нет пути в пределах глубины поиска | `bfsShortestPath(current, target, deadEndSearchDepth)` → `NOT_FOUND` |
 | Бюджетный | Проверка не завершилась | `BUDGET_EXCEEDED` (не считается тупиком) |
 
 ### 4.2. Проверка после каждого шага
 
 ```text
-function checkDeadEnd(session: GameSession, budget: Budget): DeadEndStatus
+function checkDeadEnd(session: GameSession, config: PairGenConfig, budget: Budget): DeadEndStatus
 
-    // 1. Остались ли шаги?
-    remaining = session.maxSteps - session.stepCount
-    if remaining <= 0 and session.currentActorId != session.targetActorId:
-        return DEAD_END(TOO_MANY_STEPS)
+    // Лимита на ходы игрока нет (см. начало §4): глубина поиска
+    // задаётся отдельно и не меньше гарантированной длины пути.
 
-    // 2. Есть ли у актёра фильмы?
+    // 1. Есть ли у актёра фильмы?
     movies = getActorMovieIds(session.currentActorId)
     if movies is empty:
         return DEAD_END(NO_MOVIES)
 
-    // 3. Быстрый локальный тупик: нет фильма с "другим" актёром
+    // 2. Быстрый локальный тупик: нет фильма с "другим" актёром
     hasOtherActor = false
     for movieId in movies:
         castIds = getMovieCastIds(movieId)
@@ -459,11 +463,11 @@ function checkDeadEnd(session: GameSession, budget: Budget): DeadEndStatus
     if not hasOtherActor:
         return DEAD_END(NO_OTHER_ACTORS)
 
-    // 4. Глобальная проверка: есть ли путь к цели?
+    // 3. Глобальная проверка: есть ли путь к цели?
     result = bfsShortestPath(
         startId  = session.currentActorId,
         targetId = session.targetActorId,
-        maxSteps = remaining,
+        maxSteps = config.deadEndSearchDepth,
         budget   = budget
     )
 
@@ -471,16 +475,16 @@ function checkDeadEnd(session: GameSession, budget: Budget): DeadEndStatus
         FOUND:
             return OK(shortestRemaining = result.distance)
         NOT_FOUND:
-            return DEAD_END(NO_PATH_WITHIN_REMAINING)
+            return DEAD_END(NO_PATH)
         BUDGET_EXCEEDED:
             return UNKNOWN   // не наказываем игрока за нашу нехватку бюджета
 ```
 
 ### 4.3. Что делает presentation с результатом
 
-- `OK(shortestRemaining)` — партия продолжается. Если `shortestRemaining == remaining`, у игрока только один валидный ход — можно мягко предупредить («Цель где-то рядом»).
+- `OK(shortestRemaining)` — партия продолжается. Если `shortestRemaining == 1`, цель достижима одним переходом — UI может мягко подсветить это («Цель рядом»).
 - `DEAD_END(...)` — показывается состояние «Нет доступных переходов». Игроку предлагается:
-  - `UndoLastTransition`, если последний переход был в текущей сессии и ещё не подтверждён как «финальный»;
+  - `UndoLastTransition`, если цепочка непустая (отмена последнего шага);
   - `FinishGame(surrender)`;
   - новая партия.
 - `UNKNOWN` — игра **не** блокирует игрока: интерфейс просто показывает текущее состояние без вердикта. Учитывая, что генератор изначально гарантирует путь, долгая неразрешимость — редкость и связана с бюджетом.
@@ -638,10 +642,10 @@ function bidirectionalReachable(
 
 ### 5.7. Сохранение решения при генерации
 
-При старте партии сохраняем `shortestPath` (список `ChainStep`) в `GameSessionEntity`:
+При старте партии сохраняем `shortestPath` (список `ChainStep`) в поле `game_sessions.shortestPathJson` (схема — в `docs/03_data_layer.md` §2, формат сериализации фиксируется на этапе реализации):
 
 ```text
-game_sessions.shortestPathJson   (или отдельная таблица session_solution_steps)
+game_sessions.shortestPathJson
 ```
 
 Это даёт три преимущества:
@@ -674,7 +678,7 @@ game_sessions.shortestPathJson   (или отдельная таблица sessi
 | Проверка пути при генерации | `bfsShortestPath` | `maxSteps`, `Budget` | `BfsResult` |
 | Генерация пары | `generatePair` | `PairGenConfig`, `Budget` | `PairResult` |
 | Раскрытие графа | `boundedBfsLayers` | `maxSteps`, `maxFrontierPerActor`, `Budget` | `LayersResult` |
-| Проверка тупика | `checkDeadEnd` | `remaining`, `Budget` | `DeadEndStatus` |
+| Проверка тупика | `checkDeadEnd` | `deadEndSearchDepth`, `Budget` | `DeadEndStatus` |
 | Отмена перехода | `undoLastTransition` | — | `GameSession` |
 | Восстановление пути | `reconstructChain` | — | `List<ChainStep>` |
 

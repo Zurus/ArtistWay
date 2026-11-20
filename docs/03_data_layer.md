@@ -209,6 +209,7 @@ data class GameSessionEntity(
     val updatedAtMillis: Long,
     val finishedAtMillis: Long?,
     val stepCount: Int,
+    val shortestPathJson: String?,
     val generationSeed: Long?
 )
 
@@ -225,6 +226,11 @@ data class ChainStepEntity(
     val createdAtMillis: Long
 )
 ```
+
+Дополнительно:
+
+- `shortestPathJson` — найденный генератором кратчайший путь (сериализованный список шагов); используется для офлайн-подсказки, быстрой проверки тупика и воспроизводимости партии (см. `docs/04_algorithms.md` §5.7). Формат сериализации фиксируется на этапе реализации.
+- Отдельной таблицы результатов нет: `GameResult` выводится из `game_sessions` (`status`, `finishedAtMillis`, `stepCount`) и `chain_steps`.
 
 ### Связи
 
@@ -296,8 +302,10 @@ interface GameSessionDao {
 Базовый URL:
 
 ```text
-[https://api.themoviedb.org/3](https://api.themoviedb.org/3)
+https://api.themoviedb.org/3
 ```
+
+Локаль данных: все запросы MVP идут с `language=en-US` — русский UI, названия фильмов и имена актёров английские (локализация отложена, см. `docs/05_roadmap.md`, «Что не входит в MVP»). Локаль вынесена в параметр интерфейсов и в будущем переключается без изменения DTO. Если TMDB вернул `null` для `title`/`name`, маппер подставляет `originalTitle`/`originalName`, а при их отсутствии — безопасную заглушку (см. `docs/01_concept.md` §6.15).
 
 ```kotlin
 interface TmdbPersonApi {
@@ -371,11 +379,11 @@ GET /movie/{movie_id}
 | Направление | DTO | Entity / Domain | Правила |
 |---|---|---|---|
 | TMDB → Room | `TmdbPersonDto` | `ActorEntity` | `id` обязателен; отсутствующее имя — безопасная заглушка |
-| TMDB → Room | `TmdbMovieDto` | `MovieEntity` | `id` обязателен; `releaseDate` может отсутствовать |
+| TMDB → Room | `TmdbMovieDto` | `MovieEntity` | `id` обязателен; `releaseDate` может отсутствовать; `title` и `originalTitle` сохраняются в пару полей |
 | TMDB → Room | `TmdbMovieCastMemberDto` | `MovieCastEntity` | Сохраняются только валидные `person_id` и `movie_id` |
 | TMDB → Room | `TmdbPersonMovieCreditDto` | `MovieEntity` + `ActorMovieCreditEntity` | Фильм сохраняется или обновляется, затем создаётся связь |
 | Room → Domain | `ActorEntity` | `Actor` | Фото формируется из `profilePath` и configuration |
-| Room → Domain | `MovieEntity` | `Movie` | Год извлекается из `releaseDate`, если он есть |
+| Room → Domain | `MovieEntity` | `Movie` | Год извлекается из `releaseDate`, если он есть; название — `title`, fallback на `originalTitle`, затем заглушка |
 | Room → Domain | `MovieCastEntity` + `ActorEntity` | `MovieCredit` | Объединяются данные состава и актёра |
 | Room → Domain | `GameSessionEntity` + `ChainStepEntity` | `GameSession` | Шаги сортируются по `stepIndex` |
 
@@ -492,3 +500,9 @@ Repository
 | Дубликат `person_id` / `movie_id` | Upsert по первичному ключу |
 | Пустой `cast` | Возврат пустого списка, но не ошибка сети |
 | Неполные поля | Безопасные заглушки в UI |
+
+---
+
+## 7. Ссылки
+
+- [1] — `docs/01_concept.md`: раздел 5 (Ограничения TMDB API) и раздел 6 (Edge cases).
