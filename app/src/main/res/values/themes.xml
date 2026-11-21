@@ -1,0 +1,3 @@
+<resources>
+    <style name="Theme.KinoSvyazi" parent="android:Theme.Material.NoActionBar" />
+</resources>

@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">КиноСвязи</string>
+
+    <!-- Сообщения об ошибках (docs/01_concept.md §7.12: кратко, по-русски, без технических деталей) -->
+    <string name="error_network">Сбой сети. Проверьте соединение и повторите.</string>
+    <string name="error_offline">Нет соединения с интернетом. Доступны только сохранённые данные.</string>
+    <string name="error_server">Сервис TMDB временно недоступен. Попробуйте позже.</string>
+    <string name="error_rate_limit">Превышен лимит запросов к TMDB. Повторите через минуту.</string>
+    <string name="error_data_invalid">Некорректные данные от TMDB. Повторите попытку.</string>
+    <string name="error_budget_exceeded">Исчерпан бюджет вычислений. Попробуйте ещё раз.</string>
+</resources>

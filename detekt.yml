@@ -1,0 +1,31 @@
+# Настройки detekt для проекта (создан на Этапе 1, docs/05_roadmap.md).
+# База — default-конфиги detekt (buildUponDefaultConfig = true).
+
+build:
+  maxIssues: 0
+  excludeCorrectable: false
+
+config:
+  validation: true
+  warningsAsErrors: false
+
+complexity:
+  LongMethod:
+    active: false
+  LongParameterList:
+    active: false
+  TooManyFunctions:
+    active: false
+
+style:
+  MaxLineLength:
+    maxLineLength: 120
+  MagicNumber:
+    active: false
+  ReturnCount:
+    max: 3
+
+naming:
+  FunctionNaming:
+    ignoreAnnotated:
+      - Composable

@@ -15,7 +15,7 @@
 | 3 | Спек data layer | `docs/03_data_layer.md` | ✅ выполнен |
 | 4 | Алгоритмы (псевдокод) | `docs/04_algorithms.md` | ✅ выполнен |
 | 5 | Roadmap | `docs/05_roadmap.md` | ✅ выполнен |
-| 6 | Фундамент проекта (roadmap, этап 1) | Kotlin-проект: Gradle, Hilt, доменные контракты | ⏳ не выполнен |
+| 6 | Фундамент проекта (roadmap, этап 1) | Kotlin-проект: Gradle, Hilt, доменные контракты | ✅ выполнен |
 | 7 | Data layer, первый срез (roadmap, этап 2) | Retrofit + Repository (фильмография актёра) | ⏳ не выполнен |
 | 8 | Data layer, остальные срезы (roadmap, этап 2) | Room, cast фильма, сессия, классификация ошибок, тесты | ⏳ не выполнен |
 | 9 | Domain: алгоритмы и UseCase (roadmap, этап 3) | BFS, генератор пар, UseCase, unit-тесты | ⏳ не выполнен |
