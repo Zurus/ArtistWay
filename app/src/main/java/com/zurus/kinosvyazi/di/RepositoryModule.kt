@@ -1,18 +1,23 @@
 package com.zurus.kinosvyazi.di
 
+import com.zurus.kinosvyazi.data.repository.ActorRepositoryImpl
+import com.zurus.kinosvyazi.domain.repository.ActorRepository
+import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
 /**
- * Привязки доменных интерфейсов репозиториев к реализациям.
- *
- * Заполняется на Этапах 2–3 (docs/05_roadmap.md):
- * [com.zurus.kinosvyazi.domain.repository.ActorRepository],
- * [com.zurus.kinosvyazi.domain.repository.MovieRepository],
- * [com.zurus.kinosvyazi.domain.repository.GamePairRepository],
- * [com.zurus.kinosvyazi.domain.repository.GameSessionRepository].
+ * Привязки реализаций репозиториев к доменным контрактам.
+ * Срез 1 этапа 2: только [ActorRepository]; [com.zurus.kinosvyazi.domain.repository.MovieRepository]
+ * и [com.zurus.kinosvyazi.domain.repository.GameSessionRepository] — срез 2.
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object RepositoryModule
+abstract class RepositoryModule {
+
+    @Binds
+    @Singleton
+    abstract fun bindActorRepository(impl: ActorRepositoryImpl): ActorRepository
+}

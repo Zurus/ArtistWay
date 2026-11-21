@@ -1,11 +1,25 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.detekt)
 }
+
+// Ключ TMDB читается из local.properties (файл в .gitignore) и не коммитится.
+val localPropertiesFile = rootProject.file("local.properties")
+val tmdbApiKey: String =
+    if (localPropertiesFile.exists()) {
+        val props = Properties()
+        localPropertiesFile.inputStream().use { props.load(it) }
+        props.getProperty("TMDB_API_KEY", "")
+    } else {
+        ""
+    }
 
 android {
     namespace = "com.zurus.kinosvyazi"
@@ -19,6 +33,8 @@ android {
         versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
     }
 
     buildTypes {
@@ -38,6 +54,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     packaging {
@@ -77,6 +94,18 @@ dependencies {
     // Утилиты
     implementation(libs.timber)
 
+    // Сеть: TMDB (Retrofit + OkHttp + kotlinx-serialization)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.converter.kotlinx.serialization)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.logging)
+    implementation(libs.kotlinx.serialization.json)
+
+    // Локальная база: Room
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
     // Debug
     debugImplementation(libs.androidx.compose.ui.tooling)
 
@@ -91,7 +120,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    // Room / Retrofit / OkHttp / kotlinx-serialization — добавляются на Этапе 2.
+    // Room / Retrofit / OkHttp / kotlinx-serialization подключены (Этап 2, срез 1).
+    // MockWebServer — на срезе 2.
 }
 
 detekt {

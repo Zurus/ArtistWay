@@ -1,16 +1,78 @@
 package com.zurus.kinosvyazi.di
 
+import com.zurus.kinosvyazi.BuildConfig
+import com.zurus.kinosvyazi.data.network.NetworkConfig
+import com.zurus.kinosvyazi.data.remote.TmdbConfigurationProvider
+import com.zurus.kinosvyazi.data.remote.api.TmdbConfigurationApi
+import com.zurus.kinosvyazi.data.remote.api.TmdbPersonApi
+import com.zurus.kinosvyazi.data.remote.interceptor.ApiKeyInterceptor
 import dagger.Module
+import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+import kotlinx.serialization.json.Json
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.kotlinx.serialization.asConverterFactory
+import okhttp3.MediaType.Companion.toMediaType
+import timber.log.Timber
+import java.util.concurrent.TimeUnit
 
 /**
- * Сетевой стек TMDB.
- *
- * Заполняется на Этапе 2 (docs/05_roadmap.md): OkHttp, Retrofit,
- * `TmdbApi`, `TmdbConfigurationApi`, перехватчики
- * (API-ключ, retry/429, таймауты) — docs/03_data_layer.md §3–§6.
+ * Сетевой слой TMDB: OkHttp (таймауты + api_key), Retrofit (kotlinx-serialization)
+ * и провайдер конфигурации изображений (docs/03_data_layer.md §3).
  */
 @Module
 @InstallIn(SingletonComponent::class)
-object NetworkModule
+object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(NetworkConfig.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NetworkConfig.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NetworkConfig.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .addInterceptor(ApiKeyInterceptor(BuildConfig.TMDB_API_KEY))
+        if (BuildConfig.DEBUG) {
+            val logging = HttpLoggingInterceptor { message -> Timber.tag("TMDB").d(message) }
+                .setLevel(HttpLoggingInterceptor.Level.BASIC)
+            builder.addInterceptor(logging)
+        }
+        return builder.build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideJson(): Json = Json {
+        ignoreUnknownKeys = true
+        explicitNulls = false
+    }
+
+    @Provides
+    @Singleton
+    fun provideRetrofit(client: OkHttpClient, json: Json): Retrofit =
+        Retrofit.Builder()
+            .baseUrl(NetworkConfig.TMDB_BASE_URL)
+            .client(client)
+            .addConverterFactory(json.asConverterFactory(JSON_MEDIA_TYPE))
+            .build()
+
+    @Provides
+    fun provideTmdbPersonApi(retrofit: Retrofit): TmdbPersonApi =
+        retrofit.create(TmdbPersonApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideTmdbConfigurationApi(retrofit: Retrofit): TmdbConfigurationApi =
+        retrofit.create(TmdbConfigurationApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideTmdbConfigurationProvider(api: TmdbConfigurationApi): TmdbConfigurationProvider =
+        TmdbConfigurationProvider(api)
+
+    private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+}

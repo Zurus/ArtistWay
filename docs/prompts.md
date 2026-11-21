@@ -16,7 +16,7 @@
 | 4 | Алгоритмы (псевдокод) | `docs/04_algorithms.md` | ✅ выполнен |
 | 5 | Roadmap | `docs/05_roadmap.md` | ✅ выполнен |
 | 6 | Фундамент проекта (roadmap, этап 1) | Kotlin-проект: Gradle, Hilt, доменные контракты | ✅ выполнен |
-| 7 | Data layer, первый срез (roadmap, этап 2) | Retrofit + Repository (фильмография актёра) | ⏳ не выполнен |
+| 7 | Data layer, первый срез (roadmap, этап 2) | Retrofit + Repository (фильмография актёра) | ✅ выполнен |
 | 8 | Data layer, остальные срезы (roadmap, этап 2) | Room, cast фильма, сессия, классификация ошибок, тесты | ⏳ не выполнен |
 | 9 | Domain: алгоритмы и UseCase (roadmap, этап 3) | BFS, генератор пар, UseCase, unit-тесты | ⏳ не выполнен |
 | 10 | MVP игрового цикла (roadmap, этап 4) | 5 экранов основного пути end-to-end | ⏳ не выполнен |
