@@ -3,6 +3,7 @@ package com.zurus.kinosvyazi.di
 import com.zurus.kinosvyazi.core.common.DefaultDispatcher
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.common.MainDispatcher
+import com.zurus.kinosvyazi.data.time.Clock
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -35,4 +36,10 @@ object AppModule {
     @Singleton
     @DefaultDispatcher
     fun provideDefaultDispatcher(): CoroutineDispatcher = Dispatchers.Default
+
+    @Provides
+    @Singleton
+    fun provideClock(): Clock = Clock {
+        System.currentTimeMillis()
+    }
 }

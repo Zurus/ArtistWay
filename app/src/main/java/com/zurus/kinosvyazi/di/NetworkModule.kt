@@ -3,9 +3,12 @@ package com.zurus.kinosvyazi.di
 import com.zurus.kinosvyazi.BuildConfig
 import com.zurus.kinosvyazi.data.network.NetworkConfig
 import com.zurus.kinosvyazi.data.remote.TmdbConfigurationProvider
+import com.zurus.kinosvyazi.data.remote.TmdbConfigurationProviderImpl
 import com.zurus.kinosvyazi.data.remote.api.TmdbConfigurationApi
+import com.zurus.kinosvyazi.data.remote.api.TmdbMovieApi
 import com.zurus.kinosvyazi.data.remote.api.TmdbPersonApi
 import com.zurus.kinosvyazi.data.remote.interceptor.ApiKeyInterceptor
+import com.zurus.kinosvyazi.data.remote.interceptor.RateLimitInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,6 +39,7 @@ object NetworkModule {
             .readTimeout(NetworkConfig.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .writeTimeout(NetworkConfig.WRITE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .addInterceptor(ApiKeyInterceptor(BuildConfig.TMDB_API_KEY))
+            .addInterceptor(RateLimitInterceptor())
         if (BuildConfig.DEBUG) {
             val logging = HttpLoggingInterceptor { message -> Timber.tag("TMDB").d(message) }
                 .setLevel(HttpLoggingInterceptor.Level.BASIC)
@@ -65,6 +69,10 @@ object NetworkModule {
         retrofit.create(TmdbPersonApi::class.java)
 
     @Provides
+    fun provideTmdbMovieApi(retrofit: Retrofit): TmdbMovieApi =
+        retrofit.create(TmdbMovieApi::class.java)
+
+    @Provides
     @Singleton
     fun provideTmdbConfigurationApi(retrofit: Retrofit): TmdbConfigurationApi =
         retrofit.create(TmdbConfigurationApi::class.java)
@@ -72,7 +80,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideTmdbConfigurationProvider(api: TmdbConfigurationApi): TmdbConfigurationProvider =
-        TmdbConfigurationProvider(api)
+        TmdbConfigurationProviderImpl(api)
 
     private val JSON_MEDIA_TYPE = "application/json".toMediaType()
 }

@@ -1,9 +1,10 @@
 package com.zurus.kinosvyazi.data.mapper
 
 import com.zurus.kinosvyazi.data.local.entity.MovieEntity
-import com.zurus.kinosvyazi.data.remote.TmdbConfigurationProvider
+import com.zurus.kinosvyazi.data.remote.TmdbImageUrls
 import com.zurus.kinosvyazi.data.remote.dto.TmdbMovieDto
 import com.zurus.kinosvyazi.domain.model.Movie
+import javax.inject.Inject
 import java.time.LocalDate
 import java.time.Year
 import java.time.format.DateTimeParseException
@@ -20,7 +21,7 @@ interface MovieMapper {
 
     fun toDomain(entity: MovieEntity, imageBaseUrl: String): Movie
 
-    class Default : MovieMapper {
+    class Default @Inject constructor() : MovieMapper {
 
         override fun toEntity(dto: TmdbMovieDto, fetchedAtMillis: Long): MovieEntity? =
             dto.id?.let { movieId ->
@@ -45,9 +46,9 @@ interface MovieMapper {
                 tmdbId = entity.movieId,
                 title = entity.title.ifBlank { safeTitle(entity.originalTitle, null) },
                 year = parseYear(entity.releaseDate),
-                posterUrl = TmdbConfigurationProvider.TmdbImageUrls.compose(
+                posterUrl = TmdbImageUrls.compose(
                     imageBaseUrl,
-                    TmdbConfigurationProvider.TmdbImageUrls.POSTER_SIZE,
+                    TmdbImageUrls.POSTER_SIZE,
                     entity.posterPath,
                 ),
             )

@@ -32,6 +32,10 @@ interface GameSessionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSteps(steps: List<ChainStepEntity>)
 
+    /** Удаляет один шаг (Undo, docs/01_concept.md §6.16). */
+    @Query("DELETE FROM chain_steps WHERE sessionId = :sessionId AND stepIndex = :stepIndex")
+    suspend fun deleteStep(sessionId: String, stepIndex: Int)
+
     @Query("DELETE FROM chain_steps WHERE sessionId = :sessionId")
     suspend fun deleteSteps(sessionId: String)
 }

@@ -20,6 +20,7 @@ import com.zurus.kinosvyazi.data.remote.dto.TmdbPersonMovieCreditsResponseDto
 import com.zurus.kinosvyazi.domain.model.Actor
 import com.zurus.kinosvyazi.domain.model.Movie
 import com.zurus.kinosvyazi.domain.repository.ActorRepository
+import com.zurus.kinosvyazi.data.time.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.SerializationException
@@ -46,18 +47,21 @@ class ActorRepositoryImpl @Inject constructor(
     private val personMapper: PersonMapper,
     private val movieMapper: MovieMapper,
     private val personMovieCreditMapper: PersonMovieCreditMapper,
-    private val nowMillis: () -> Long = System::currentTimeMillis,
+    private val clock: Clock,
 ) : ActorRepository {
 
-    private val actorCache = InMemoryCache<Actor>(CachePolicy.IN_MEMORY_LIST_TTL.toMillis(), nowMillis)
-    private val filmographyCache = InMemoryCache<List<Movie>>(CachePolicy.IN_MEMORY_LIST_TTL.toMillis(), nowMillis)
+    private val actorCache = InMemoryCache<Actor>(CachePolicy.IN_MEMORY_LIST_TTL.toMillis(), clock::nowMillis)
+    private val filmographyCache = InMemoryCache<List<Movie>>(
+        CachePolicy.IN_MEMORY_LIST_TTL.toMillis(),
+        clock::nowMillis,
+    )
 
     override suspend fun getActor(actorId: Int): Result<Actor, AppError> {
         actorCache.get(actorId)?.let { return Result.success(it) }
 
         val stored = actorDao.getById(actorId)
         val fresh = stored?.takeIf {
-            CachePolicy.isFresh(it.fetchedAtMillis, CachePolicy.ACTOR_TTL, nowMillis())
+            CachePolicy.isFresh(it.fetchedAtMillis, CachePolicy.ACTOR_TTL, clock.nowMillis())
         }
         return if (fresh != null) {
             val actor = personMapper.toDomain(fresh, imageBaseUrl())
@@ -86,7 +90,7 @@ class ActorRepositoryImpl @Inject constructor(
     private suspend fun fetchAndCacheActor(actorId: Int, stored: ActorEntity?): Result<Actor, AppError> {
         return try {
             val dto = personApi.getPerson(actorId)
-            val entity = personMapper.toEntity(dto, nowMillis())
+            val entity = personMapper.toEntity(dto, clock.nowMillis())
             if (entity == null) {
                 Timber.w("TMDB /person/%d вернул null id", actorId)
                 Result.failure(AppError.DataInvalid("TMDB person id is null"))
@@ -125,7 +129,7 @@ class ActorRepositoryImpl @Inject constructor(
         personId: Int,
         response: TmdbPersonMovieCreditsResponseDto,
     ): Result<List<Movie>, AppError> {
-        val now = nowMillis()
+        val now = clock.nowMillis()
         val movieEntities = linkedMapOf<Int, MovieEntity>()
         val creditEntities = ArrayList<ActorMovieCreditEntity>()
         for (creditDto in response.cast.orEmpty()) {
@@ -160,7 +164,7 @@ class ActorRepositoryImpl @Inject constructor(
 
     private fun List<ActorMovieCreditEntity>.isFresh(): Boolean {
         val newest = maxOf { it.fetchedAtMillis }
-        return CachePolicy.isFresh(newest, CachePolicy.ACTOR_MOVIE_CREDITS_TTL, nowMillis())
+        return CachePolicy.isFresh(newest, CachePolicy.ACTOR_MOVIE_CREDITS_TTL, clock.nowMillis())
     }
 
     private suspend fun moviesFromStoredCredits(credits: List<ActorMovieCreditEntity>): List<Movie> {

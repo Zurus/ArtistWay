@@ -1,9 +1,10 @@
 package com.zurus.kinosvyazi.data.mapper
 
 import com.zurus.kinosvyazi.data.local.entity.ActorEntity
-import com.zurus.kinosvyazi.data.remote.TmdbConfigurationProvider
+import com.zurus.kinosvyazi.data.remote.TmdbImageUrls
 import com.zurus.kinosvyazi.data.remote.dto.TmdbPersonDto
 import com.zurus.kinosvyazi.domain.model.Actor
+import javax.inject.Inject
 
 /**
  * Маппинг `TmdbPersonDto` ↔ `ActorEntity` ↔ `Actor` (docs/03_data_layer.md §4):
@@ -18,7 +19,12 @@ interface PersonMapper {
 
     fun toDomain(entity: ActorEntity, imageBaseUrl: String): Actor
 
-    class Default : PersonMapper {
+    companion object {
+        /** Заглушка имени актёра, которого TMDB не вернул (docs/01_concept.md §6.15). */
+        const val UNKNOWN_NAME = "Неизвестный"
+    }
+
+    class Default @Inject constructor() : PersonMapper {
 
         override fun toEntity(dto: TmdbPersonDto, fetchedAtMillis: Long): ActorEntity? =
             dto.id?.let { personId ->
@@ -36,15 +42,11 @@ interface PersonMapper {
             Actor(
                 tmdbId = entity.personId,
                 name = entity.name.ifBlank { UNKNOWN_NAME },
-                photoUrl = TmdbConfigurationProvider.TmdbImageUrls.compose(
+                photoUrl = TmdbImageUrls.compose(
                     imageBaseUrl,
-                    TmdbConfigurationProvider.TmdbImageUrls.PROFILE_SIZE,
+                    TmdbImageUrls.PROFILE_SIZE,
                     entity.profilePath,
                 ),
             )
-
-        private companion object {
-            const val UNKNOWN_NAME = "Неизвестный"
-        }
     }
 }

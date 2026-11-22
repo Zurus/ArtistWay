@@ -12,6 +12,9 @@ interface ActorDao {
     @Query("SELECT * FROM actors WHERE personId = :personId")
     suspend fun getById(personId: Int): ActorEntity?
 
+    @Query("SELECT * FROM actors WHERE personId IN (:personIds)")
+    suspend fun getByIds(personIds: List<Int>): List<ActorEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(actor: ActorEntity)
 

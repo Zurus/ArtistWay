@@ -113,6 +113,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.hilt.android.testing)
+    testImplementation(libs.okhttp.mockwebserver)
+    testImplementation(libs.test.core)
     kspTest(libs.hilt.compiler)
 
     // Тесты (instrumented)
@@ -120,8 +122,8 @@ dependencies {
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 
-    // Room / Retrofit / OkHttp / kotlinx-serialization подключены (Этап 2, срез 1).
-    // MockWebServer — на срезе 2.
+    // Room / Retrofit / OkHttp / kotlinx-serialization / MockWebServer
+    // подключены (Этап 2, срезы 1–2).
 }
 
 detekt {

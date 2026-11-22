@@ -3,6 +3,7 @@ package com.zurus.kinosvyazi.data.mapper
 import com.zurus.kinosvyazi.data.local.entity.ActorMovieCreditEntity
 import com.zurus.kinosvyazi.data.local.entity.MovieEntity
 import com.zurus.kinosvyazi.data.remote.dto.TmdbPersonMovieCreditDto
+import javax.inject.Inject
 
 /**
  * Маппинг `TmdbPersonMovieCreditDto` → `MovieEntity` + `ActorMovieCreditEntity`
@@ -14,7 +15,7 @@ interface PersonMovieCreditMapper {
 
     fun toCreditEntity(dto: TmdbPersonMovieCreditDto, personId: Int, fetchedAtMillis: Long): ActorMovieCreditEntity?
 
-    class Default : PersonMovieCreditMapper {
+    class Default @Inject constructor() : PersonMovieCreditMapper {
 
         override fun toMovieEntity(dto: TmdbPersonMovieCreditDto, fetchedAtMillis: Long): MovieEntity? =
             dto.id?.let { movieId ->
