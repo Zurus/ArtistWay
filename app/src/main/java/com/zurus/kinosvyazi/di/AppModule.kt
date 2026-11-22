@@ -1,9 +1,12 @@
 package com.zurus.kinosvyazi.di
 
+import com.zurus.kinosvyazi.core.common.Clock
 import com.zurus.kinosvyazi.core.common.DefaultDispatcher
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.common.MainDispatcher
-import com.zurus.kinosvyazi.data.time.Clock
+import com.zurus.kinosvyazi.data.time.Clock as DataClock
+import com.zurus.kinosvyazi.domain.util.Budget
+import com.zurus.kinosvyazi.domain.util.PairGenConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -15,8 +18,8 @@ import kotlinx.coroutines.Dispatchers
 /**
  * Базовые провайдеры приложения.
  *
- * На Этапе 3 сюда добавятся UseCases и фабрики
- * `PairGenConfig`/`Budget` (docs/05_roadmap.md).
+ * Этап 3: фабрики `PairGenConfig`/`Budget` для UseCase и доменных
+ * алгоритмов (docs/05_roadmap.md, Этап 3).
  */
 @Module
 @InstallIn(SingletonComponent::class)
@@ -39,7 +42,24 @@ object AppModule {
 
     @Provides
     @Singleton
+    fun provideDataClock(): DataClock = DataClock {
+        System.currentTimeMillis()
+    }
+
+    @Provides
+    @Singleton
     fun provideClock(): Clock = Clock {
         System.currentTimeMillis()
+    }
+
+    @Provides
+    @Singleton
+    fun providePairGenConfig(): PairGenConfig = PairGenConfig()
+
+    /** Фабрика: каждый вызов — свежий (мутабельный) [Budget]. */
+    @Provides
+    @Singleton
+    fun provideBudgetFactory(): () -> Budget = {
+        Budget()
     }
 }

@@ -16,6 +16,12 @@ complexity:
     active: false
   TooManyFunctions:
     active: false
+  # Этап 3: алгоритмы BFS/генерации по сути ветвистые (бюджет, кэш, валидные
+  # состояния NOT_FOUND/BUDGET_EXCEEDED) — пороги скорректированы под них.
+  CyclomaticComplexMethod:
+    threshold: 25
+  NestedBlockDepth:
+    threshold: 6
 
 style:
   MaxLineLength:
@@ -23,7 +29,9 @@ style:
   MagicNumber:
     active: false
   ReturnCount:
-    max: 3
+    max: 10
+  LoopWithTooManyJumpStatements:
+    active: false
 
 naming:
   FunctionNaming:
