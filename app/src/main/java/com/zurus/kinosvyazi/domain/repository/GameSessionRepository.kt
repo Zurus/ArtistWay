@@ -35,4 +35,10 @@ interface GameSessionRepository {
      * приложения, либо `null`, если такой нет.
      */
     suspend fun restoreActiveSession(): GameSession?
+
+    /**
+     * Возвращает партию по [sessionId] (любого статуса) —
+     * для экранов активной партии и результатов (docs/01_concept.md, §2.4, §2.8, §2.9).
+     */
+    suspend fun findSession(sessionId: String): GameSession?
 }

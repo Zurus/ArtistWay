@@ -31,9 +31,8 @@ import java.util.UUID
  * партия и цепочка шагов в Room, восстановление после перезапуска
  * приложения, Undo последнего хода (docs/01_concept.md §6.16).
  *
- * Доменная [GameSession] не несёт `sessionId`, поэтому активная партия
- * идентифицируется по совпадению (стартовый актёр, целевой актёр,
- * время начала) с единственной партией статуса `IN_PROGRESS`.
+ * `sessionId` (UUID) генерируется здесь, в момент создания партии,
+ * и хранится в Room как первичный ключ.
  */
 @Singleton
 class GameSessionRepositoryImpl @Inject constructor(
@@ -46,7 +45,6 @@ class GameSessionRepositoryImpl @Inject constructor(
 
     override suspend fun startSession(pair: GamePair): Result<GameSession, AppError> = runInRoom {
         val now = clock.nowMillis()
-        val sessionId = newSessionId()
         actorDao.upsertAll(
             listOf(
                 pair.startActor.toEntity(now),
@@ -54,6 +52,7 @@ class GameSessionRepositoryImpl @Inject constructor(
             )
         )
         val session = GameSession(
+            sessionId = newSessionId(),
             startActor = pair.startActor,
             targetActor = pair.targetActor,
             currentActor = pair.startActor,
@@ -66,7 +65,7 @@ class GameSessionRepositoryImpl @Inject constructor(
             shortestPath = pair.shortestPath,
             generationSeed = pair.seed,
         )
-        gameSessionDao.upsert(gameSessionMapper.toEntity(session, sessionId, now))
+        gameSessionDao.upsert(gameSessionMapper.toEntity(session, now))
         Result.success(session)
     }
 
@@ -161,19 +160,38 @@ class GameSessionRepositoryImpl @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
+    override suspend fun findSession(sessionId: String): GameSession? {
+        val entity = try {
+            gameSessionDao.getById(sessionId)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (e: Exception) {
+            Timber.e(e, "Не удалось прочитать партию %s", sessionId)
+            return null
+        }
+        if (entity == null) {
+            return null
+        }
+        return try {
+            loadDomainSession(entity)
+        } catch (c: CancellationException) {
+            throw c
+        } catch (e: Exception) {
+            Timber.e(e, "Не удалось восстановить партию %s", entity.sessionId)
+            null
+        }
+    }
+
     // --- Вспомогательные функции ---
 
     private suspend fun activeSessionEntityFor(session: GameSession): GameSessionEntity? {
         val entity = gameSessionDao.getActive(GameSessionStatus.IN_PROGRESS.name) ?: return null
-        val matches = entity.startPersonId == session.startActor.tmdbId &&
-            entity.targetPersonId == session.targetActor.tmdbId &&
-            entity.startedAtMillis == session.startedAtMillis
-        return if (matches) {
-            entity
-        } else {
-            Timber.w("Активная партия в Room не совпадает с переданной сессией")
-            null
+        if (entity.sessionId == session.sessionId) {
+            return entity
         }
+        Timber.w("Активная партия в Room (%s) не совпадает с переданной (%s)", entity.sessionId, session.sessionId)
+        return null
     }
 
     private suspend fun loadDomainSession(entity: GameSessionEntity): GameSession {

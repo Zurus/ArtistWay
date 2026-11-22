@@ -19,10 +19,14 @@ import com.zurus.kinosvyazi.feature.rules.RulesScreen
 import com.zurus.kinosvyazi.feature.transition.TransitionScreen
 
 /**
- * Граф навигации приложения (docs/01_concept.md, §2).
+ * Граф навигации приложения (docs/01_concept.md, §2, docs/05_roadmap.md, пункт 4).
  *
- * На Этапе 1 все экраны — composable-заглушки;
- * логика экранов появляется на Этапах 4–5 (docs/05_roadmap.md).
+ * Основной путь: Home → Rules (опционально) → GameSetup → Game →
+ * MoviePicker → ActorPicker → Transition → Game → … → Result.
+ *
+ * Аргументы (sessionId, movieId, toActorId) сохраняются в стеке навигации
+ * и переживают process death; данные экраны восстанавливают состояние
+ * из Room по `sessionId`.
  */
 @Composable
 fun AppNavHost(navController: NavHostController = rememberNavController()) {
@@ -30,16 +34,49 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
         navController = navController,
         startDestination = NavRoutes.HOME,
     ) {
-        composable(NavRoutes.HOME) { HomeScreen() }
-        composable(NavRoutes.RULES) { RulesScreen() }
-        composable(NavRoutes.GAME_SETUP) { GameSetupScreen() }
-        composable(NavRoutes.GAME) { GameScreen() }
-        composable(NavRoutes.MOVIE_PICKER) { MoviePickerScreen() }
-        composable(NavRoutes.ACTOR_PICKER) { ActorPickerScreen() }
-        composable(NavRoutes.TRANSITION) { TransitionScreen() }
-        composable(NavRoutes.RESULT_WON) { GameResultScreen() }
-        composable(NavRoutes.RESULT_NON_WIN) { GameResultNonWinScreen() }
-        composable(NavRoutes.CHAIN) { ChainScreen() }
+        composable(NavRoutes.HOME) { HomeScreen(navController) }
+        composable(NavRoutes.RULES) { RulesScreen(navController) }
+        composable(NavRoutes.GAME_SETUP) { GameSetupScreen(navController) }
+        composable(NavRoutes.GAME) { entry ->
+            GameScreen(navController, entry.requireSessionId())
+        }
+        composable(NavRoutes.MOVIE_PICKER) { entry ->
+            MoviePickerScreen(navController, entry.requireSessionId())
+        }
+        composable(NavRoutes.ACTOR_PICKER) { entry ->
+            ActorPickerScreen(
+                navController = navController,
+                sessionId = entry.requireSessionId(),
+                movieId = entry.requireMovieId(),
+            )
+        }
+        composable(NavRoutes.TRANSITION) { entry ->
+            TransitionScreen(
+                navController = navController,
+                sessionId = entry.requireSessionId(),
+                movieId = entry.requireMovieId(),
+                toActorId = entry.arguments?.getInt(NavRoutes.TO_ACTOR_ID) ?: 0,
+            )
+        }
+        composable(NavRoutes.RESULT_WON) { entry ->
+            GameResultScreen(navController, entry.requireSessionId())
+        }
+        composable(NavRoutes.RESULT_NON_WIN) { entry ->
+            GameResultNonWinScreen(navController, entry.requireSessionId())
+        }
+        composable(NavRoutes.CHAIN) { entry ->
+            ChainScreen(navController, entry.requireSessionId())
+        }
         composable(NavRoutes.ERROR) { ErrorScreen() }
     }
 }
+
+private fun androidx.navigation.NavBackStackEntry.requireSessionId(): String =
+    requireNotNull(arguments?.getString(NavRoutes.SESSION_ID)) {
+        "Маршрут без аргумента ${NavRoutes.SESSION_ID}"
+    }
+
+private fun androidx.navigation.NavBackStackEntry.requireMovieId(): Int =
+    requireNotNull(arguments?.getInt(NavRoutes.MOVIE_ID)) {
+        "Маршрут без аргумента ${NavRoutes.MOVIE_ID}"
+    }

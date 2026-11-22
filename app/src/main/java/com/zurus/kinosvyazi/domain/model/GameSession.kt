@@ -24,6 +24,9 @@ enum class GameSessionStatus {
 /**
  * Активная или завершённая партия.
  *
+ * @property sessionId уникальный идентификатор партии (UUID),
+ *    используется в навигации и для поиска в Room
+ *    (docs/05_roadmap.md, пункт 4: навигация переживает process death).
  * @property startActor стартовый актёр цепочки.
  * @property targetActor целевой актёр.
  * @property currentActor актёр, на котором сейчас находится цепочка.
@@ -37,6 +40,7 @@ enum class GameSessionStatus {
  * @property generationSeed сид генерации или `null`.
  */
 data class GameSession(
+    val sessionId: String,
     val startActor: Actor,
     val targetActor: Actor,
     val currentActor: Actor,

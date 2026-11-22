@@ -18,15 +18,14 @@ import timber.log.Timber
  * `GameSession` ↔ `GameSessionEntity` + `ChainStepEntity`.
  * Шаги восстанавливаются в порядке `stepIndex`.
  *
- * Отклонения от доков (доменная модель не несёт `sessionId`,
- * а маппер не имеет доступа к Room):
- * - `toEntity` принимает [sessionId] и время сохранения отдельно;
+ * Отклонения от доков (маппер не имеет доступа к Room):
+ * - `toEntity` принимает время сохранения отдельно;
  * - `toDomain` принимает актёрские строки (стартовый/целевой/текущий)
  *   и базовый URL изображений.
  */
 interface GameSessionMapper {
 
-    fun toEntity(session: GameSession, sessionId: String, fetchedAtMillis: Long): GameSessionEntity
+    fun toEntity(session: GameSession, fetchedAtMillis: Long): GameSessionEntity
 
     fun toDomain(
         sessionEntity: GameSessionEntity,
@@ -43,11 +42,10 @@ interface GameSessionMapper {
 
         override fun toEntity(
             session: GameSession,
-            sessionId: String,
             fetchedAtMillis: Long,
         ): GameSessionEntity =
             GameSessionEntity(
-                sessionId = sessionId,
+                sessionId = session.sessionId,
                 startPersonId = session.startActor.tmdbId,
                 targetPersonId = session.targetActor.tmdbId,
                 currentPersonId = session.currentActor.tmdbId,
@@ -71,6 +69,7 @@ interface GameSessionMapper {
             imageBaseUrl: String,
         ): GameSession =
             GameSession(
+                sessionId = sessionEntity.sessionId,
                 startActor = personMapper.toDomain(startActor, imageBaseUrl),
                 targetActor = personMapper.toDomain(targetActor, imageBaseUrl),
                 currentActor = personMapper.toDomain(currentActor, imageBaseUrl),

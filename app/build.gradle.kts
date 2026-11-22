@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
     alias(libs.plugins.detekt)
+    jacoco
 }
 
 // Ключ TMDB читается из local.properties (файл в .gitignore) и не коммитится.
@@ -84,6 +85,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.core)
     implementation(libs.androidx.navigation.compose)
 
     // DI (Hilt)
@@ -100,6 +102,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.coil.compose)
 
     // Локальная база: Room
     implementation(libs.room.runtime)
@@ -110,11 +113,13 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     // Тесты (unit)
+    testImplementation(kotlin("test"))
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.hilt.android.testing)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.test.core)
+    testImplementation(libs.kotlinx.coroutines.test)
     kspTest(libs.hilt.compiler)
 
     // Тесты (instrumented)
@@ -129,4 +134,26 @@ dependencies {
 detekt {
     buildUponDefaultConfig = true
     config.setFrom(files("$rootDir/detekt.yml"))
+}
+
+// Jacoco: покрытие domain/util — критерий приёмки Этапа 3 (docs/05_roadmap.md, ≥ 80%).
+// Запуск: ./gradlew jacocoDomainReport → app/build/reports/jacoco/jacocoDomainReport
+
+tasks.withType<Test> {
+    extensions.configure<JacocoTaskExtension> {
+        isEnabled = true
+    }
+}
+
+tasks.register<JacocoReport>("jacocoDomainReport") {
+    dependsOn("testDebugUnitTest")
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+    }
+    classDirectories.setFrom(
+        fileTree(layout.buildDirectory.dir("intermediates/classes/debug/transformDebugClassesWithAsm/dirs")),
+    )
+    sourceDirectories.setFrom(files("src/main/java"))
+    executionData.setFrom(file(layout.buildDirectory.dir("jacoco/testDebugUnitTest.exec")))
 }

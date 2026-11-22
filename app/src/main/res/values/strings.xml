@@ -8,4 +8,113 @@
     <string name="error_rate_limit">Превышен лимит запросов к TMDB. Повторите через минуту.</string>
     <string name="error_data_invalid">Некорректные данные от TMDB. Повторите попытку.</string>
     <string name="error_budget_exceeded">Исчерпан бюджет вычислений. Попробуйте ещё раз.</string>
+
+    <!-- Экран запуска (§2.1) -->
+    <string name="home_tagline">Постройте цепочку от одного актёра к другому через фильмы</string>
+    <string name="home_start_game">Начать игру</string>
+    <string name="home_how_to_play">Как играть</string>
+    <string name="home_tmdb_available">Данные TMDB доступны</string>
+    <string name="home_tmdb_unavailable">Не удалось подключиться к TMDB</string>
+    <string name="home_retry_connection">Повторить подключение</string>
+    <string name="home_checking">Проверяем подключение…</string>
+
+    <!-- Экран правил (§2.2) -->
+    <string name="rules_title">Как играть</string>
+    <string name="rules_goal">Цель — построить цепочку от стартового актёра до целевого: каждый следующий актёр должен сниматься в фильме с предыдущим.</string>
+    <string name="rules_scheme">Актёр → Фильм → Актёр</string>
+    <string name="rules_example">Пример: Актёр 1 → «Оскар» → Актёр 2 → «Гран-при» → Актёр 3 (цель)</string>
+    <string name="rules_finish">Партия завершается, когда вы достигаете целевого актёра.</string>
+    <string name="rules_limit_1">Нельзя выбрать фильм, в котором нет текущего актёра.</string>
+    <string name="rules_limit_2">Нельзя выбрать актёра, которого нет в выбранном фильме.</string>
+    <string name="rules_limit_3">Нельзя перейти к актёру напрямую, минуя фильм.</string>
+    <string name="rules_back">Назад</string>
+    <string name="rules_start_game">Начать игру</string>
+
+    <!-- Экран генерации партии (§2.3) -->
+    <string name="setup_generating">Генерируем пару…</string>
+    <string name="setup_generating_hint">Ищем связку актёров, которую можно пройти за несколько шагов</string>
+    <string name="setup_error_title">Не удалось создать партию</string>
+    <string name="setup_retry">Повторить</string>
+    <string name="setup_back">Назад</string>
+
+    <!-- Экран активной партии (§2.4) -->
+    <string name="game_start_actor">Старт</string>
+    <string name="game_target_actor">Цель</string>
+    <string name="game_current_actor">Текущий актёр</string>
+    <string name="game_chain">Цепочка</string>
+    <string name="game_chain_empty">Пока нет шагов — выберите фильм</string>
+    <string name="game_steps_count">Шагов: %1$d</string>
+    <string name="game_pick_movie">Выбрать фильм</string>
+    <string name="game_surrender">Сдаться</string>
+    <string name="game_surrender_confirm_title">Завершить партию?</string>
+    <string name="game_surrender_confirm_text">Партия будет завершена как «сдана». Начать новую можно в любой момент.</string>
+    <string name="game_surrender_confirm_yes">Сдаться</string>
+    <string name="game_surrender_confirm_no">Продолжить</string>
+    <string name="game_next_hint">Шаг %1$d: выберите фильм с участием %2$s</string>
+
+    <!-- Экран выбора фильма (§2.5) -->
+    <string name="movie_picker_title">Выберите фильм</string>
+    <string name="movie_picker_subtitle">с участием %1$s</string>
+    <string name="movie_picker_empty">Фильмы не найдены</string>
+    <string name="movie_picker_back">Назад</string>
+    <string name="movie_picker_retry">Повторить</string>
+    <string name="movie_picker_unknown_year">без года</string>
+
+    <!-- Экран выбора следующего актёра (§2.6) -->
+    <string name="actor_picker_title">Кого выберете</string>
+    <string name="actor_picker_subtitle">из фильма «%1$s»</string>
+    <string name="actor_picker_target_badge">Цель</string>
+    <string name="actor_picker_empty">Актёры не найдены</string>
+    <string name="actor_picker_back">Назад</string>
+    <string name="actor_picker_retry">Повторить</string>
+
+    <!-- Экран подтверждения перехода (§2.7) -->
+    <string name="transition_title">Подтвердите переход</string>
+    <string name="transition_confirm">Подтвердить</string>
+    <string name="transition_cancel">Отменить</string>
+    <string name="transition_invalid_title">Недопустимый переход</string>
+    <string name="transition_go_back">Назад</string>
+    <string name="transition_new_chain">Новая цепочка</string>
+
+    <!-- Причины невалидного перехода (ChainValidator) -->
+    <string name="chain_break">Переход разрывает цепочку: актёр не связан с текущим.</string>
+    <string name="chain_actor_repeat">Этот актёр уже есть в цепочке.</string>
+    <string name="chain_movie_repeat">Этот фильм уже есть в цепочке.</string>
+    <string name="chain_actor_not_in_cast">Актёр не участвует в выбранном фильме.</string>
+    <string name="chain_invalid_ids">Некорректные данные перехода.</string>
+
+    <!-- Экран победы (§2.8) -->
+    <string name="result_won_title">Цель достигнута!</string>
+    <string name="result_steps">Шагов: %1$d</string>
+    <string name="result_time">Время: %1$s</string>
+    <string name="result_new_game">Новая партия</string>
+    <string name="result_view_chain">Посмотреть цепочку</string>
+    <string name="result_menu">В меню</string>
+    <string name="result_loading">Загружаем результат…</string>
+
+    <!-- Экран результата без победы (§2.9) -->
+    <string name="result_nonwin_title">Партия завершена</string>
+    <string name="result_nonwin_surrender">Вы сдались.</string>
+    <string name="result_nonwin_dead_end">Не найдено доступных переходов.</string>
+    <string name="result_nonwin_error">Произошла ошибка данных.</string>
+    <string name="result_nonwin_unknown">Причина завершения неизвестна.</string>
+    <string name="result_nonwin_partial_chain">Ваша цепочка</string>
+    <string name="result_nonwin_empty_chain">Шаги не были сделаны.</string>
+
+    <!-- Экран просмотра цепочки (§2.11) -->
+    <string name="chain_title">Цепочка</string>
+    <string name="chain_mark_start">Старт</string>
+    <string name="chain_mark_target">Цель</string>
+    <string name="chain_step_number">Шаг %1$d</string>
+    <string name="chain_back">Назад</string>
+    <string name="chain_not_found">Партия не найдена</string>
+
+    <!-- Служебные -->
+    <string name="common_retry">Повторить</string>
+    <string name="common_back">Назад</string>
+    <string name="common_loading">Загрузка…</string>
+    <string name="common_unknown_actor">Актёр %1$d</string>
+    <string name="common_unknown_movie">Фильм %1$d</string>
+    <string name="content_description_photo">Фото</string>
+    <string name="content_description_poster">Постер</string>
 </resources>
