@@ -25,10 +25,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.zurus.kinosvyazi.R
 import com.zurus.kinosvyazi.core.ui.UiState
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.feature.result.ResultMetrics
 import com.zurus.kinosvyazi.feature.result.formatGameDuration
 import com.zurus.kinosvyazi.ui.components.ChainView
 import com.zurus.kinosvyazi.ui.components.UiStateView
+import com.zurus.kinosvyazi.ui.navigation.NavRoutes
 
 /**
  * Экран просмотра цепочки (docs/01_concept.md, §2.11):
@@ -42,7 +44,11 @@ fun ChainScreen(
     viewModel: ChainViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+    LaunchedEffect(sessionId) {
+        viewModel.load(sessionId) {
+            navController.navigate(NavRoutes.error(ErrorType.NOT_FOUND))
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -72,6 +78,8 @@ fun ChainScreen(
                     .verticalScroll(rememberScrollState())
                     .padding(16.dp),
             ) {
+                // docs/01_concept.md §6.18: длинная цепочка сворачивается
+                // (последние 3 шага + «Показать всё»).
                 ChainView(
                     chain = content.session.chain,
                     actors = content.chain.actors,
@@ -79,6 +87,7 @@ fun ChainScreen(
                     startActorId = content.session.startActor.tmdbId,
                     targetActorId = content.session.targetActor.tmdbId,
                     currentActorId = content.session.currentActor.tmdbId,
+                    collapsedLimit = 3,
                 )
                 ResultMetrics(
                     stepCount = content.session.stepCount,

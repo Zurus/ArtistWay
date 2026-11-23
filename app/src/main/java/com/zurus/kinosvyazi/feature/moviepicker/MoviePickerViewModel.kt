@@ -2,7 +2,6 @@ package com.zurus.kinosvyazi.feature.moviepicker
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zurus.kinosvyazi.core.common.AppError
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.common.Result
 import com.zurus.kinosvyazi.core.ui.ErrorMapper
@@ -32,12 +31,17 @@ class MoviePickerViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<UiState<MoviePickerUiState>>(UiState.Loading)
     val uiState: StateFlow<UiState<MoviePickerUiState>> = _uiState.asStateFlow()
 
-    fun load(sessionId: String) {
+    /** Загружает фильмы текущего актёра партии.
+     *
+     * @param onSessionNotFound партия не найдена — экран уходит на ErrorScreen
+     *   (docs/01_concept.md §6.17).
+     */
+    fun load(sessionId: String, onSessionNotFound: (() -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             val session = withContext(ioDispatcher) { gameSessionRepository.findSession(sessionId) }
             if (session == null) {
-                _uiState.value = UiState.Error(ErrorMapper.map(AppError.DataInvalid("Партия не найдена")))
+                onSessionNotFound?.invoke()
                 return@launch
             }
             when (val result = withContext(ioDispatcher) {

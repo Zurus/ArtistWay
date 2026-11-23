@@ -2,15 +2,18 @@ package com.zurus.kinosvyazi.feature.game
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zurus.kinosvyazi.core.common.AppError
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.common.Result
 import com.zurus.kinosvyazi.core.ui.ChainResolver
-import com.zurus.kinosvyazi.core.ui.ErrorMapper
 import com.zurus.kinosvyazi.core.ui.UiState
 import com.zurus.kinosvyazi.domain.model.GameResultReason
+import com.zurus.kinosvyazi.domain.model.GameSession
+import com.zurus.kinosvyazi.domain.model.GameSessionStatus
 import com.zurus.kinosvyazi.domain.repository.GameSessionRepository
+import com.zurus.kinosvyazi.domain.usecase.CheckDeadEndUseCase
+import com.zurus.kinosvyazi.domain.usecase.DeadEndStatus
 import com.zurus.kinosvyazi.domain.usecase.FinishGameUseCase
+import com.zurus.kinosvyazi.domain.usecase.UndoLastTransitionUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -21,14 +24,21 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Экран активной партии (docs/01_concept.md, §2.4, docs/05_roadmap.md, пункт 4):
+ * Экран активной партии (docs/01_concept.md, §2.4; docs/05_roadmap.md, Этап 5):
  * восстановление партии из Room по [com.zurus.kinosvyazi.domain.model.GameSession.sessionId],
- * отображение данных партии, сдача партии.
+ * отображение данных партии, отмена шага и сдача партии.
+ *
+ * Тупик (docs/04_algorithms.md §4): [CheckDeadEndUseCase] выполняется после
+ * каждого зафиксированного перехода (переход заканчивается возвратом на экран
+ * партии — `load` видит новый `stepCount` и проверяет тупик ровно один раз
+ * на каждую глубину цепочки).
  */
 @HiltViewModel
 class GameViewModel @Inject constructor(
     private val gameSessionRepository: GameSessionRepository,
     private val finishGameUseCase: FinishGameUseCase,
+    private val checkDeadEndUseCase: CheckDeadEndUseCase,
+    private val undoLastTransitionUseCase: UndoLastTransitionUseCase,
     private val chainResolver: ChainResolver,
     @IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -38,19 +48,52 @@ class GameViewModel @Inject constructor(
 
     private var sessionId: String? = null
 
+    /** Глубина цепочки, для которой уже выполнена проверка тупика. */
+    private var checkedStepCount: Int? = null
+
     /** Загружает партию из Room; вызывается при каждом появлении экрана
-     * (после process death и после возврата из Transition). */
-    fun load(sessionId: String) {
+     * (после process death и после возврата из Transition).
+     *
+     * @param onSessionNotFound партия не найдена (экран уходит на ErrorScreen,
+     *   повтор запроса бессмыслен — docs/01_concept.md §6.17).
+     */
+    fun load(sessionId: String, onSessionNotFound: (() -> Unit)? = null) {
         this.sessionId = sessionId
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             val session = withContext(ioDispatcher) { gameSessionRepository.findSession(sessionId) }
             if (session == null) {
-                _uiState.value = UiState.Error(ErrorMapper.map(AppError.DataInvalid("Партия не найдена")))
+                onSessionNotFound?.invoke()
                 return@launch
             }
             val maps = withContext(ioDispatcher) { chainResolver.resolve(session) }
-            _uiState.value = UiState.Content(GameUiState(session, maps))
+            val deadEnd = checkDeadEndIfNeeded(session)
+            _uiState.value = UiState.Content(GameUiState(session, maps, deadEnd))
+        }
+    }
+
+    /**
+     * Отмена последнего шага (docs/04_algorithms.md §4.3):
+     * `currentActorId` восстанавливается, цель не меняется, партия остаётся
+     * `IN_PROGRESS`; сеть не используется (Room-данные).
+     *
+     * @return обновлённая партия либо `null`, если отменять нечего/сбой.
+     */
+    suspend fun undo(): GameSession? {
+        val content = (_uiState.value as? UiState.Content)?.value ?: return null
+        val updated = withContext(ioDispatcher) { undoLastTransitionUseCase(content.session) }
+        return when (updated) {
+            is Result.Success -> {
+                if (updated.value == content.session) {
+                    null
+                } else {
+                    checkedStepCount = updated.value.stepCount
+                    _uiState.value =
+                        UiState.Content(content.copy(session = updated.value, deadEndStatus = null))
+                    updated.value
+                }
+            }
+            is Result.Failure -> null
         }
     }
 
@@ -69,6 +112,26 @@ class GameViewModel @Inject constructor(
             is Result.Success -> true
             is Result.Failure -> false
         }
+    }
+
+    /**
+     * Проверка тупика после коммита (docs/04_algorithms.md §4.1):
+     * выполняется один раз на каждую глубину цепочки и только для
+     * незавершённых партий с непустой цепочкой (для пустой цепочки путь
+     * гарантирован генератором пар, §3).
+     */
+    private suspend fun checkDeadEndIfNeeded(session: GameSession): DeadEndStatus? {
+        if (session.status != GameSessionStatus.IN_PROGRESS) {
+            return null
+        }
+        if (session.chain.isEmpty()) {
+            return null
+        }
+        if (session.stepCount == checkedStepCount) {
+            return null
+        }
+        checkedStepCount = session.stepCount
+        return withContext(ioDispatcher) { checkDeadEndUseCase(session) }
     }
 
     private fun currentSession() =

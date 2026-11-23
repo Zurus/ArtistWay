@@ -189,7 +189,11 @@ class FakeGameSessionRepository : GameSessionRepository {
             updatedAtMillis = 4000L,
             finishedAtMillis = result.finishedAtMillis,
         )
-        activeSession = updated
+        activeSession = if (updated.status == GameSessionStatus.IN_PROGRESS) {
+            updated
+        } else {
+            null // завершённая партия не восстанавливается (как в Room: WHERE status = IN_PROGRESS)
+        }
         sessions[updated.sessionId] = updated
         return Result.Success(updated)
     }

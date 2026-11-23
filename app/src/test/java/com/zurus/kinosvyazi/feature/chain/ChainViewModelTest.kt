@@ -61,13 +61,16 @@ class ChainViewModelTest {
     }
 
     @Test
-    fun `unknown session - error`() = runTest {
+    fun `unknown session - onSessionNotFound invoked`() = runTest {
         val viewModel = ChainViewModel(
             FakeGameSessionRepository(),
             ChainResolver(FakeActorRepository(graph), FakeMovieRepository(graph)),
             dispatcher,
         )
-        viewModel.load("missing")
-        assertTrue(viewModel.uiState.value is UiState.Error)
+        var notFoundInvoked = 0
+        viewModel.load("missing") { notFoundInvoked++ }
+        assertEquals(1, notFoundInvoked)
+        // Экран уходит на ErrorScreen — состояние остаётся Loading, а не Error.
+        assertTrue(viewModel.uiState.value is UiState.Loading)
     }
 }

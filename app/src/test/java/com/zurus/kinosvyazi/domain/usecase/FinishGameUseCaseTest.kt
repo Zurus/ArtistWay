@@ -10,6 +10,7 @@ import com.zurus.kinosvyazi.domain.model.GameResultReason
 import com.zurus.kinosvyazi.domain.model.GameSessionStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 
@@ -46,7 +47,8 @@ class FinishGameUseCaseTest {
         assertEquals(42L, gameResult.finishedAtMillis)
         assertTrue(gameResult.isWin)
         assertEquals(1, sessionRepository.finished.size)
-        assertEquals(GameSessionStatus.WON, sessionRepository.activeSession?.status)
+        assertEquals(GameSessionStatus.WON, sessionRepository.sessions[session.sessionId]!!.status)
+        assertNull(sessionRepository.activeSession, "завершённая партия не восстанавливается как активная")
     }
 
     @Test
@@ -54,7 +56,7 @@ class FinishGameUseCaseTest {
         val sessionRepository = FakeGameSessionRepository()
         val result = useCase(sessionRepository)(session, GameResultReason.SURRENDER)
         assertEquals(GameResultReason.SURRENDER, result.getOrNull()?.reason)
-        assertEquals(GameSessionStatus.SURRENDERED, sessionRepository.activeSession?.status)
+        assertEquals(GameSessionStatus.SURRENDERED, sessionRepository.sessions[session.sessionId]!!.status)
     }
 
     @Test
@@ -62,7 +64,7 @@ class FinishGameUseCaseTest {
         val sessionRepository = FakeGameSessionRepository()
         val result = useCase(sessionRepository)(session, GameResultReason.DEAD_END)
         assertEquals(GameResultReason.DEAD_END, result.getOrNull()?.reason)
-        assertEquals(GameSessionStatus.DEAD_END, sessionRepository.activeSession?.status)
+        assertEquals(GameSessionStatus.DEAD_END, sessionRepository.sessions[session.sessionId]!!.status)
     }
 
     @Test
@@ -70,7 +72,7 @@ class FinishGameUseCaseTest {
         val sessionRepository = FakeGameSessionRepository()
         val result = useCase(sessionRepository)(session, GameResultReason.ERROR)
         assertEquals(GameResultReason.ERROR, result.getOrNull()?.reason)
-        assertEquals(GameSessionStatus.ERROR, sessionRepository.activeSession?.status)
+        assertEquals(GameSessionStatus.ERROR, sessionRepository.sessions[session.sessionId]!!.status)
     }
 
     @Test
@@ -78,7 +80,7 @@ class FinishGameUseCaseTest {
         val sessionRepository = FakeGameSessionRepository()
         val result = useCase(sessionRepository)(session, GameResultReason.NEW_GAME)
         assertEquals(GameResultReason.NEW_GAME, result.getOrNull()?.reason)
-        assertEquals(GameSessionStatus.SURRENDERED, sessionRepository.activeSession?.status)
+        assertEquals(GameSessionStatus.SURRENDERED, sessionRepository.sessions[session.sessionId]!!.status)
     }
 
     @Test

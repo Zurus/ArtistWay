@@ -2,10 +2,8 @@ package com.zurus.kinosvyazi.feature.result
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zurus.kinosvyazi.core.common.AppError
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.ui.ChainResolver
-import com.zurus.kinosvyazi.core.ui.ErrorMapper
 import com.zurus.kinosvyazi.core.ui.UiState
 import com.zurus.kinosvyazi.domain.repository.GameSessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,12 +30,17 @@ class GameResultNonWinViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<UiState<GameResultNonWinUiState>>(UiState.Loading)
     val uiState: StateFlow<UiState<GameResultNonWinUiState>> = _uiState.asStateFlow()
 
-    fun load(sessionId: String) {
+    /** Загружает партию и резолвит цепочку.
+     *
+     * @param onSessionNotFound партия не найдена — экран уходит на ErrorScreen
+     *   (docs/01_concept.md §6.17).
+     */
+    fun load(sessionId: String, onSessionNotFound: (() -> Unit)? = null) {
         viewModelScope.launch {
             _uiState.value = UiState.Loading
             val session = withContext(ioDispatcher) { gameSessionRepository.findSession(sessionId) }
             if (session == null) {
-                _uiState.value = UiState.Error(ErrorMapper.map(AppError.DataInvalid("Партия не найдена")))
+                onSessionNotFound?.invoke()
                 return@launch
             }
             val maps = withContext(ioDispatcher) { chainResolver.resolve(session) }

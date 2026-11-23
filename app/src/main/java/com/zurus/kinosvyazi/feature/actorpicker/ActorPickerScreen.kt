@@ -1,6 +1,7 @@
 package com.zurus.kinosvyazi.feature.actorpicker
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -27,7 +28,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.zurus.kinosvyazi.R
 import com.zurus.kinosvyazi.core.ui.UiState
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.ui.components.ActorCard
+import com.zurus.kinosvyazi.ui.components.OfflineBanner
 import com.zurus.kinosvyazi.ui.components.UiStateView
 import com.zurus.kinosvyazi.ui.navigation.NavRoutes
 
@@ -45,7 +48,11 @@ fun ActorPickerScreen(
     viewModel: ActorPickerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    LaunchedEffect(sessionId, movieId) { viewModel.load(sessionId, movieId) }
+    LaunchedEffect(sessionId, movieId) {
+        viewModel.load(sessionId, movieId) {
+            navController.navigate(NavRoutes.error(ErrorType.NOT_FOUND))
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -62,42 +69,64 @@ fun ActorPickerScreen(
             )
         },
     ) { padding ->
-        UiStateView(
-            state = state,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            onRetry = { viewModel.load(sessionId, movieId) },
-            emptyText = stringResource(R.string.actor_picker_empty),
-        ) { content ->
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
-            ) {
-                item {
-                    content.movie?.let { movie ->
-                        Text(
-                            stringResource(R.string.actor_picker_subtitle, movie.title),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(bottom = 4.dp),
+        Column(Modifier.fillMaxSize()) {
+            OfflineBanner()
+            UiStateView(
+                state = state,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                onRetry = { viewModel.load(sessionId, movieId) },
+                // docs/01_concept.md §6.6: конкретный текст + действие «Назад».
+                emptyText = stringResource(R.string.actor_picker_empty),
+                emptyHint = stringResource(R.string.actor_picker_empty_hint),
+                emptyActionLabel = stringResource(R.string.common_back),
+                onEmptyAction = { navController.popBackStack() },
+                // docs/01_concept.md §6.11: заголовок над текстом ошибки.
+                errorTitle = stringResource(R.string.actor_picker_load_error),
+            ) { content ->
+                val targetInCast = content.actors.any { it.tmdbId == content.targetActor.tmdbId }
+                LazyColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(top = 12.dp, bottom = 16.dp),
+                ) {
+                    item {
+                        content.movie?.let { movie ->
+                            Text(
+                                stringResource(R.string.actor_picker_subtitle, movie.title),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+                        }
+                    }
+                    // docs/01_concept.md §6.7: цель может отсутствовать в касте —
+                    // показываем сообщение, игрок выбирает другого актёра/фильм.
+                    if (!targetInCast) {
+                        item {
+                            Text(
+                                stringResource(R.string.actor_picker_target_not_found),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                            )
+                        }
+                    }
+                    items(content.actors, key = { it.tmdbId }) { actor ->
+                        ActorCard(
+                            actor = actor,
+                            modifier = Modifier.fillMaxWidth(),
+                            badge = if (actor.tmdbId == content.targetActor.tmdbId) {
+                                stringResource(R.string.actor_picker_target_badge)
+                            } else {
+                                null
+                            },
+                            onClick = {
+                                navController.navigate(NavRoutes.transition(sessionId, movieId, actor.tmdbId))
+                            },
                         )
                     }
-                }
-                items(content.actors, key = { it.tmdbId }) { actor ->
-                    ActorCard(
-                        actor = actor,
-                        modifier = Modifier.fillMaxWidth(),
-                        badge = if (actor.tmdbId == content.targetActor.tmdbId) {
-                            stringResource(R.string.actor_picker_target_badge)
-                        } else {
-                            null
-                        },
-                        onClick = {
-                            navController.navigate(NavRoutes.transition(sessionId, movieId, actor.tmdbId))
-                        },
-                    )
                 }
             }
         }

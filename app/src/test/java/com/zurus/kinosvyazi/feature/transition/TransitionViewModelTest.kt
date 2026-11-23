@@ -128,9 +128,12 @@ class TransitionViewModelTest {
     }
 
     @Test
-    fun `unknown session - error state`() = runTest {
+    fun `unknown session - onSessionNotFound invoked`() = runTest {
         val viewModel = createViewModel(FakeGameSessionRepository())
-        viewModel.load("missing", 101, 2)
-        assertTrue(viewModel.uiState.value is UiState.Error)
+        var notFoundInvoked = 0
+        viewModel.load("missing", 101, 2) { notFoundInvoked++ }
+        assertEquals(1, notFoundInvoked)
+        // Экран уходит на ErrorScreen — состояние остаётся Loading, а не Error.
+        assertTrue(viewModel.uiState.value is UiState.Loading)
     }
 }

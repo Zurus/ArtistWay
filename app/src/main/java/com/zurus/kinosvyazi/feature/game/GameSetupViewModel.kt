@@ -2,11 +2,13 @@ package com.zurus.kinosvyazi.feature.game
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.zurus.kinosvyazi.R
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.common.Result
 import com.zurus.kinosvyazi.core.ui.ErrorMapper
 import com.zurus.kinosvyazi.core.ui.UiState
-import com.zurus.kinosvyazi.domain.repository.toAppError
+import com.zurus.kinosvyazi.core.ui.UiText
+import com.zurus.kinosvyazi.domain.repository.PairGenerationError
 import com.zurus.kinosvyazi.domain.usecase.StartGameUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -46,11 +48,24 @@ class GameSetupViewModel @Inject constructor(
                     is Result.Success ->
                         _uiState.value = UiState.Content(GameSetupUiState(result.value))
                     is Result.Failure ->
-                        _uiState.value = UiState.Error(ErrorMapper.map(result.error.toAppError()))
+                        // docs/01_concept.md §6.1/6.3: конкретные тексты
+                        // «Не удалось подобрать пару» / «Лимит запросов исчерпан».
+                        _uiState.value = UiState.Error(result.error.toUiText())
                 }
             } finally {
                 inProgress = false
             }
         }
+    }
+
+    /**
+     * Ошибки генерации парами (docs/01_concept.md §6.1/6.3) — не «некорректные данные»:
+     * [PairGenerationError.NoValidPair] → «Не удалось подобрать подходящую пару»,
+     * [PairGenerationError.BudgetExceeded] → «Лимит запросов исчерпан».
+     */
+    private fun PairGenerationError.toUiText(): UiText = when (this) {
+        PairGenerationError.NoValidPair -> UiText.Resource(R.string.setup_error_no_pair)
+        is PairGenerationError.BudgetExceeded -> UiText.Resource(R.string.setup_error_budget)
+        is PairGenerationError.DataError -> ErrorMapper.map(error)
     }
 }

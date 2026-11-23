@@ -96,6 +96,27 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(32.dp))
+        when (val currentState = state) {
+            is UiState.Loading -> Unit
+            is UiState.Content -> {
+                if (currentState.value.activeSessionId != null) {
+                    Button(
+                        onClick = {
+                            navController.navigate(
+                                NavRoutes.game(currentState.value.activeSessionId),
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) {
+                        Text(stringResource(R.string.home_continue))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                }
+            }
+            is UiState.Empty -> Unit
+            is UiState.Error -> Unit
+        }
+
         Button(
             onClick = {
                 navController.navigate(NavRoutes.GAME_SETUP) {

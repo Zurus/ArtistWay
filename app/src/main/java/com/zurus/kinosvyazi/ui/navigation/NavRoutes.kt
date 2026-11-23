@@ -1,5 +1,7 @@
 package com.zurus.kinosvyazi.ui.navigation
 
+import com.zurus.kinosvyazi.feature.error.ErrorType
+
 /**
  * Маршруты всех экранов приложения (docs/01_concept.md, §2).
  *
@@ -38,12 +40,13 @@ object NavRoutes {
     /** Экран просмотра цепочки (§2.11). */
     const val CHAIN = "chain/{sessionId}"
 
-    /** Экран ошибки (§2.10). */
-    const val ERROR = "error"
+    /** Экран ошибки (§2.10); `type` — тип ошибки ([ErrorType]). */
+    const val ERROR = "error/{type}"
 
     const val SESSION_ID = "sessionId"
     const val MOVIE_ID = "movieId"
     const val TO_ACTOR_ID = "toActorId"
+    const val ERROR_TYPE = "type"
 
     fun game(sessionId: String): String = GAME.replace("{sessionId}", sessionId)
 
@@ -62,4 +65,6 @@ object NavRoutes {
     fun resultNonWin(sessionId: String): String = RESULT_NON_WIN.replace("{sessionId}", sessionId)
 
     fun chain(sessionId: String): String = CHAIN.replace("{sessionId}", sessionId)
+
+    fun error(type: ErrorType): String = ERROR.replace("{type}", type.route)
 }

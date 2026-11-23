@@ -93,22 +93,26 @@ class GameResultViewModelTest {
     }
 
     @Test
-    fun `unknown session - error for both screens`() = runTest {
+    fun `unknown session - onSessionNotFound invoked for both screens`() = runTest {
         val winViewModel = GameResultViewModel(
             FakeGameSessionRepository(),
             ChainResolver(FakeActorRepository(graph), FakeMovieRepository(graph)),
             dispatcher,
         )
-        winViewModel.load("missing")
-        assertTrue(winViewModel.uiState.value is UiState.Error)
+        var winNotFound = 0
+        winViewModel.load("missing") { winNotFound++ }
+        assertEquals(1, winNotFound)
+        assertTrue(winViewModel.uiState.value is UiState.Loading)
 
         val nonWinViewModel = GameResultNonWinViewModel(
             FakeGameSessionRepository(),
             ChainResolver(FakeActorRepository(graph), FakeMovieRepository(graph)),
             dispatcher,
         )
-        nonWinViewModel.load("missing")
-        assertTrue(nonWinViewModel.uiState.value is UiState.Error)
+        var nonWinNotFound = 0
+        nonWinViewModel.load("missing") { nonWinNotFound++ }
+        assertEquals(1, nonWinNotFound)
+        assertTrue(nonWinViewModel.uiState.value is UiState.Loading)
     }
 
     @Test

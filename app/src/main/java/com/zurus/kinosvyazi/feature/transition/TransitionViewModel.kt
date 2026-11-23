@@ -50,7 +50,9 @@ class TransitionViewModel @Inject constructor(
     private var movieId: Int = 0
     private var toActorId: Int = 0
 
-    fun load(sessionId: String, movieId: Int, toActorId: Int) {
+    /** @param onSessionNotFound партия не найдена — экран уходит на ErrorScreen
+     *   (docs/01_concept.md §6.17). */
+    fun load(sessionId: String, movieId: Int, toActorId: Int, onSessionNotFound: (() -> Unit)? = null) {
         this.sessionId = sessionId
         this.movieId = movieId
         this.toActorId = toActorId
@@ -58,7 +60,7 @@ class TransitionViewModel @Inject constructor(
             _uiState.value = UiState.Loading
             val session = withContext(ioDispatcher) { gameSessionRepository.findSession(sessionId) }
             if (session == null) {
-                _uiState.value = UiState.Error(ErrorMapper.map(AppError.DataInvalid("Партия не найдена")))
+                onSessionNotFound?.invoke()
                 return@launch
             }
             val (movie, toActor) = withContext(ioDispatcher) {

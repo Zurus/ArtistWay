@@ -31,6 +31,7 @@ import com.zurus.kinosvyazi.R
 import com.zurus.kinosvyazi.core.ui.UiState
 import com.zurus.kinosvyazi.domain.model.Actor
 import com.zurus.kinosvyazi.domain.model.GameSessionStatus
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.ui.components.ActorPhoto
 import com.zurus.kinosvyazi.ui.components.ChainView
 import com.zurus.kinosvyazi.ui.components.UiStateView
@@ -48,7 +49,11 @@ fun GameResultNonWinScreen(
     viewModel: GameResultNonWinViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+    LaunchedEffect(sessionId) {
+        viewModel.load(sessionId) {
+            navController.navigate(NavRoutes.error(ErrorType.NOT_FOUND))
+        }
+    }
 
     UiStateView(
         state = state,

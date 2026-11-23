@@ -1,5 +1,6 @@
 package com.zurus.kinosvyazi.feature.moviepicker
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,7 +25,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import com.zurus.kinosvyazi.R
 import com.zurus.kinosvyazi.core.ui.UiState
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.ui.components.MovieCard
+import com.zurus.kinosvyazi.ui.components.OfflineBanner
 import com.zurus.kinosvyazi.ui.components.UiStateView
 import com.zurus.kinosvyazi.ui.navigation.NavRoutes
 
@@ -40,7 +43,11 @@ fun MoviePickerScreen(
     viewModel: MoviePickerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+    LaunchedEffect(sessionId) {
+        viewModel.load(sessionId) {
+            navController.navigate(NavRoutes.error(ErrorType.NOT_FOUND))
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -57,38 +64,47 @@ fun MoviePickerScreen(
             )
         },
     ) { padding ->
-        UiStateView(
-            state = state,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            onRetry = { viewModel.load(sessionId) },
-            emptyText = stringResource(R.string.movie_picker_empty),
-        ) { content ->
-            LazyColumn(
-                modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    top = 12.dp,
-                    bottom = 16.dp,
-                ),
-            ) {
-                item {
-                    Text(
-                        stringResource(R.string.movie_picker_subtitle, content.currentActor.name),
-                        style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
-                        color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                    )
-                }
-                items(content.movies, key = { it.tmdbId }) { movie ->
-                    MovieCard(
-                        movie = movie,
-                        modifier = Modifier.fillMaxWidth(),
-                        onClick = {
-                            navController.navigate(NavRoutes.actorPicker(sessionId, movie.tmdbId))
-                        },
-                    )
+        Column(Modifier.fillMaxSize()) {
+            OfflineBanner()
+            UiStateView(
+                state = state,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                onRetry = { viewModel.load(sessionId) },
+                // docs/01_concept.md §6.5: конкретный текст + действие «Назад».
+                emptyText = stringResource(R.string.movie_picker_empty),
+                emptyHint = stringResource(R.string.movie_picker_empty_hint),
+                emptyActionLabel = stringResource(R.string.common_back),
+                onEmptyAction = { navController.popBackStack() },
+                // docs/01_concept.md §6.12: заголовок над текстом ошибки.
+                errorTitle = stringResource(R.string.movie_picker_load_error),
+            ) { content ->
+                LazyColumn(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp),
+                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                        top = 12.dp,
+                        bottom = 16.dp,
+                    ),
+                ) {
+                    item {
+                        Text(
+                            stringResource(R.string.movie_picker_subtitle, content.currentActor.name),
+                            style = androidx.compose.material3.MaterialTheme.typography.bodyMedium,
+                            color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                        )
+                    }
+                    items(content.movies, key = { it.tmdbId }) { movie ->
+                        MovieCard(
+                            movie = movie,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                navController.navigate(NavRoutes.actorPicker(sessionId, movie.tmdbId))
+                            },
+                        )
+                    }
                 }
             }
         }

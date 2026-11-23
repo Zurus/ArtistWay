@@ -1,5 +1,6 @@
 package com.zurus.kinosvyazi.feature.game
 
+import com.zurus.kinosvyazi.core.common.Clock
 import com.zurus.kinosvyazi.core.common.Result
 import com.zurus.kinosvyazi.core.ui.UiState
 import com.zurus.kinosvyazi.domain.FakeGameSessionRepository
@@ -7,6 +8,7 @@ import com.zurus.kinosvyazi.domain.actor
 import com.zurus.kinosvyazi.domain.model.GamePair
 import com.zurus.kinosvyazi.domain.repository.GamePairRepository
 import com.zurus.kinosvyazi.domain.repository.PairGenerationError
+import com.zurus.kinosvyazi.domain.usecase.FinishGameUseCase
 import com.zurus.kinosvyazi.domain.usecase.StartGameUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -120,5 +122,12 @@ internal object HomeSetupTestDoubles {
         sessionRepository: FakeGameSessionRepository,
         dispatcher: kotlinx.coroutines.test.TestDispatcher,
     ): GameSetupViewModel =
-        GameSetupViewModel(StartGameUseCase(pairRepository, sessionRepository), dispatcher)
+        GameSetupViewModel(
+            StartGameUseCase(
+                pairRepository,
+                sessionRepository,
+                FinishGameUseCase(sessionRepository, Clock { 5000L }),
+            ),
+            dispatcher,
+        )
 }

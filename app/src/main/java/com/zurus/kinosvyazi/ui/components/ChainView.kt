@@ -8,9 +8,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -31,6 +36,9 @@ import com.zurus.kinosvyazi.domain.model.Movie
  *
  * @param currentActorId актёр, на котором стоит цепочка сейчас, или `null`
  *   (для завершённых партий).
+ * @param collapsedLimit свёрнутый вид (docs/01_concept.md §6.18): если цепочка
+ *   длиннее [collapsedLimit], показываются только последние шаги + кнопка
+ *   «Показать всё»; `null` — всегда полная цепочка.
  */
 @Composable
 fun ChainView(
@@ -41,7 +49,13 @@ fun ChainView(
     targetActorId: Int,
     modifier: Modifier = Modifier,
     currentActorId: Int? = null,
+    collapsedLimit: Int? = null,
 ) {
+    var expanded by remember { mutableStateOf(false) }
+    val fullyVisible = expanded || collapsedLimit == null || chain.size <= (collapsedLimit ?: Int.MAX_VALUE)
+    val visibleSteps = if (fullyVisible) chain else chain.takeLast(collapsedLimit)
+    val hiddenCount = if (fullyVisible) 0 else chain.size - (collapsedLimit ?: 0)
+
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -52,7 +66,19 @@ fun ChainView(
             mark = stringResource(R.string.chain_mark_start),
             current = startActorId == currentActorId,
         )
-        chain.forEachIndexed { index, step ->
+        if (!fullyVisible) {
+            Text(
+                text = stringResource(R.string.chain_collapsed_hint, hiddenCount),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 18.dp),
+            )
+            Button(onClick = { expanded = true }, modifier = Modifier.padding(start = 18.dp)) {
+                Text(stringResource(R.string.chain_show_all))
+            }
+        }
+        visibleSteps.forEachIndexed { index, step ->
+            val stepNumber = (if (fullyVisible) 0 else chain.size - visibleSteps.size) + index + 1
             MovieNode(
                 movie = movies[step.movieId],
                 title = movies[step.movieId]?.title
@@ -67,7 +93,7 @@ fun ChainView(
                 } else {
                     null
                 },
-                stepNumber = index + 1,
+                stepNumber = stepNumber,
                 current = step.toActorId == currentActorId,
             )
         }

@@ -6,9 +6,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.zurus.kinosvyazi.feature.actorpicker.ActorPickerScreen
 import com.zurus.kinosvyazi.feature.chain.ChainScreen
 import com.zurus.kinosvyazi.feature.error.ErrorScreen
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.feature.game.GameScreen
 import com.zurus.kinosvyazi.feature.game.GameSetupScreen
 import com.zurus.kinosvyazi.feature.home.HomeScreen
@@ -67,7 +69,14 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
         composable(NavRoutes.CHAIN) { entry ->
             ChainScreen(navController, entry.requireSessionId())
         }
-        composable(NavRoutes.ERROR) { ErrorScreen() }
+        composable(
+            route = NavRoutes.ERROR,
+            arguments = listOf(
+                navArgument(NavRoutes.ERROR_TYPE) {
+                    defaultValue = ErrorType.UNKNOWN.route
+                },
+            ),
+        ) { ErrorScreen(navController) }
     }
 }
 

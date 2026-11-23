@@ -44,8 +44,14 @@ import com.zurus.kinosvyazi.core.ui.UiState
 import com.zurus.kinosvyazi.domain.model.Actor
 import com.zurus.kinosvyazi.domain.model.GameSession
 import com.zurus.kinosvyazi.domain.model.GameSessionStatus
+import com.zurus.kinosvyazi.domain.usecase.DeadEndStatus
+import com.zurus.kinosvyazi.domain.usecase.DeadEndStatus.DeadEnd
+import com.zurus.kinosvyazi.domain.usecase.DeadEndStatus.Ok
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.ui.components.ActorPhoto
 import com.zurus.kinosvyazi.ui.components.ChainView
+import com.zurus.kinosvyazi.ui.components.DeadEndDialog
+import com.zurus.kinosvyazi.ui.components.OfflineBanner
 import com.zurus.kinosvyazi.ui.components.UiStateView
 import com.zurus.kinosvyazi.ui.navigation.NavRoutes
 import kotlinx.coroutines.delay
@@ -67,9 +73,25 @@ fun GameScreen(
     viewModel: GameViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+    LaunchedEffect(sessionId) {
+        viewModel.load(sessionId) {
+            // Партия не найдена (очистка данных, неверный id) — экран ошибки,
+            // повтор запроса бессмыслен (docs/01_concept.md §6.17).
+            navController.navigate(NavRoutes.error(ErrorType.NOT_FOUND))
+        }
+    }
     var showSurrenderDialog by remember { mutableStateOf(false) }
+    var showDeadEndDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+
+    // Тупик — валидное состояние (docs/04_algorithms.md §4.3): при каждом
+    // появлении экрана с подтверждённым тупиком показываем диалог действий.
+    LaunchedEffect(state) {
+        val deadEnd = (state as? UiState.Content)?.value?.deadEndStatus
+        if (deadEnd is DeadEnd) {
+            showDeadEndDialog = true
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -83,18 +105,24 @@ fun GameScreen(
             )
         },
     ) { padding ->
-        UiStateView(
-            state = state,
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            onRetry = { viewModel.load(sessionId) },
-        ) { content ->
-            GameContent(
-                content = content,
-                onPickMovie = { navController.navigate(NavRoutes.moviePicker(sessionId)) },
-                onSurrender = { showSurrenderDialog = true },
-            )
+        Column(Modifier.fillMaxSize()) {
+            OfflineBanner()
+            UiStateView(
+                state = state,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                onRetry = { viewModel.load(sessionId) },
+            ) { content ->
+                GameContent(
+                    content = content,
+                    onPickMovie = { navController.navigate(NavRoutes.moviePicker(sessionId)) },
+                    onSurrender = { showSurrenderDialog = true },
+                    onUndo = {
+                        scope.launch { viewModel.undo() }
+                    },
+                )
+            }
         }
     }
 
@@ -124,6 +152,38 @@ fun GameScreen(
             },
         )
     }
+
+    if (showDeadEndDialog) {
+        val content = (state as? UiState.Content)?.value
+        val deadEnd = content?.deadEndStatus
+        if (content != null && deadEnd is DeadEnd) {
+            DeadEndDialog(
+                status = deadEnd,
+                canUndo = content.session.chain.isNotEmpty(),
+                onUndo = {
+                    showDeadEndDialog = false
+                    scope.launch { viewModel.undo() }
+                },
+                onSurrender = {
+                    scope.launch {
+                        if (viewModel.surrender()) {
+                            showDeadEndDialog = false
+                            navController.navigate(NavRoutes.resultNonWin(sessionId)) {
+                                popUpTo(NavRoutes.HOME) { inclusive = true }
+                            }
+                        }
+                    }
+                },
+                onNewGame = {
+                    showDeadEndDialog = false
+                    navController.navigate(NavRoutes.GAME_SETUP) {
+                        popUpTo(NavRoutes.HOME) { inclusive = true }
+                    }
+                },
+                onDismiss = { showDeadEndDialog = false },
+            )
+        }
+    }
 }
 
 @Composable
@@ -131,6 +191,7 @@ private fun GameContent(
     content: GameUiState,
     onPickMovie: () -> Unit,
     onSurrender: () -> Unit,
+    onUndo: () -> Unit,
 ) {
     val session = content.session
     Column(
@@ -191,6 +252,14 @@ private fun GameContent(
             GameTimer(startedAtMillis = session.startedAtMillis)
         }
 
+        if (content.deadEndStatus is Ok && content.deadEndStatus.shortestRemaining == 1) {
+            Text(
+                stringResource(R.string.game_target_near),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.tertiary,
+            )
+        }
+
         Text(
             stringResource(R.string.game_chain),
             style = MaterialTheme.typography.titleMedium,
@@ -219,6 +288,13 @@ private fun GameContent(
             enabled = session.status == GameSessionStatus.IN_PROGRESS,
         ) {
             Text(stringResource(R.string.game_pick_movie))
+        }
+        OutlinedButton(
+            onClick = onUndo,
+            modifier = Modifier.fillMaxWidth().height(48.dp),
+            enabled = session.status == GameSessionStatus.IN_PROGRESS && session.chain.isNotEmpty(),
+        ) {
+            Text(stringResource(R.string.game_undo))
         }
         OutlinedButton(
             onClick = onSurrender,

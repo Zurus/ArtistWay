@@ -4,6 +4,7 @@ import android.app.Application
 import com.zurus.kinosvyazi.core.common.Clock
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.ui.ChainResolver
+import com.zurus.kinosvyazi.data.network.ConnectivityObserver
 import com.zurus.kinosvyazi.domain.repository.ActorRepository
 import com.zurus.kinosvyazi.domain.repository.DataAvailabilityChecker
 import com.zurus.kinosvyazi.domain.repository.GamePairRepository
@@ -41,6 +42,7 @@ import kotlinx.coroutines.CoroutineDispatcher
  * Этап 3: в графе появляются GamePairRepository, фабрики
  * `PairGenConfig`/`Budget` и все UseCase — их инжект ловит
  * недостающие биндинги (docs/05_roadmap.md, Этап 3).
+ * Этап 5: в графе появляется ConnectivityObserver (офлайн-баннер, §6.2).
  *
  * Локальный unit-тест на Robolectric — исполняется без устройства
  * командой `./gradlew test`.
@@ -116,6 +118,9 @@ class HiltGraphTest {
     @Inject
     lateinit var chainResolver: ChainResolver
 
+    @Inject
+    lateinit var connectivityObserver: ConnectivityObserver
+
     @Test
     fun graphAssemblesAndApplicationIsInjected() {
         rule.inject()
@@ -140,5 +145,6 @@ class HiltGraphTest {
         assertNotNull("RepositoryModule должен биндить DataAvailabilityChecker", dataAvailabilityChecker)
         assertNotNull("CheckDataAvailabilityUseCase должен инжектиться", checkDataAvailabilityUseCase)
         assertNotNull("ChainResolver должен инжектиться", chainResolver)
+        assertNotNull("ConnectivityObserver должен инжектиться", connectivityObserver)
     }
 }

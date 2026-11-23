@@ -79,9 +79,12 @@ class ActorPickerViewModelTest {
     }
 
     @Test
-    fun `unknown session - error state`() = runTest {
+    fun `unknown session - onSessionNotFound invoked`() = runTest {
         val viewModel = viewModel(FakeGameSessionRepository(), FakeMovieRepository(graph))
-        viewModel.load("missing", 101)
-        assertTrue(viewModel.uiState.value is UiState.Error)
+        var notFoundInvoked = 0
+        viewModel.load("missing", 101) { notFoundInvoked++ }
+        assertEquals(1, notFoundInvoked)
+        // Экран уходит на ErrorScreen — состояние остаётся Loading, а не Error.
+        assertTrue(viewModel.uiState.value is UiState.Loading)
     }
 }

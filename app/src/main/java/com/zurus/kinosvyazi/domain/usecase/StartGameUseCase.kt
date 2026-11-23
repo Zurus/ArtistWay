@@ -1,12 +1,12 @@
 package com.zurus.kinosvyazi.domain.usecase
 
+import com.zurus.kinosvyazi.domain.model.GameResultReason
 import com.zurus.kinosvyazi.domain.model.GameSession
 import com.zurus.kinosvyazi.domain.repository.GamePairRepository
 import com.zurus.kinosvyazi.domain.repository.GameSessionRepository
 import com.zurus.kinosvyazi.domain.repository.PairGenerationError
 import com.zurus.kinosvyazi.core.common.Result
 import javax.inject.Inject
-
 /**
  * Запуск новой партии (docs/05_roadmap.md, Этап 3).
  *
@@ -22,6 +22,7 @@ import javax.inject.Inject
 class StartGameUseCase @Inject constructor(
     private val gamePairRepository: GamePairRepository,
     private val gameSessionRepository: GameSessionRepository,
+    private val finishGameUseCase: FinishGameUseCase,
 ) {
 
     /**
@@ -29,11 +30,23 @@ class StartGameUseCase @Inject constructor(
      */
     suspend operator fun invoke(seed: Long? = null): Result<GameSession, PairGenerationError> {
         return when (val pair = gamePairRepository.generatePair(seed)) {
-            is Result.Success -> when (val session = gameSessionRepository.startSession(pair.value)) {
-                is Result.Success -> Result.Success(session.value)
-                is Result.Failure -> Result.failure(PairGenerationError.DataError(session.error))
+            is Result.Success -> {
+                // docs/01_concept.md §6.17: предыдущая незавершённая партия
+                // закрывается как NEW_GAME, чтобы restoreActiveSession
+                // не возвращала мёртвую сессию.
+                closeActiveSessionAsNewGame()
+                when (val session = gameSessionRepository.startSession(pair.value)) {
+                    is Result.Success -> Result.Success(session.value)
+                    is Result.Failure ->
+                        Result.failure(PairGenerationError.DataError(session.error))
+                }
             }
             is Result.Failure -> Result.failure(pair.error)
         }
+    }
+
+    private suspend fun closeActiveSessionAsNewGame() {
+        val active = gameSessionRepository.restoreActiveSession() ?: return
+        finishGameUseCase(active, GameResultReason.NEW_GAME)
     }
 }

@@ -42,6 +42,7 @@ import com.zurus.kinosvyazi.R
 import com.zurus.kinosvyazi.core.ui.UiState
 import com.zurus.kinosvyazi.domain.model.Actor
 import com.zurus.kinosvyazi.domain.util.ChainInvalidReason
+import com.zurus.kinosvyazi.feature.error.ErrorType
 import com.zurus.kinosvyazi.ui.components.ActorPhoto
 import com.zurus.kinosvyazi.ui.components.ChainView
 import com.zurus.kinosvyazi.ui.components.UiStateView
@@ -63,7 +64,11 @@ fun TransitionScreen(
     viewModel: TransitionViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    LaunchedEffect(sessionId, movieId, toActorId) { viewModel.load(sessionId, movieId, toActorId) }
+    LaunchedEffect(sessionId, movieId, toActorId) {
+        viewModel.load(sessionId, movieId, toActorId) {
+            navController.navigate(NavRoutes.error(ErrorType.NOT_FOUND))
+        }
+    }
     val scope = rememberCoroutineScope()
 
     Scaffold(

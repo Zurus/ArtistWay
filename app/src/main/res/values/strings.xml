@@ -55,7 +55,7 @@
     <!-- Экран выбора фильма (§2.5) -->
     <string name="movie_picker_title">Выберите фильм</string>
     <string name="movie_picker_subtitle">с участием %1$s</string>
-    <string name="movie_picker_empty">Фильмы не найдены</string>
+    <string name="movie_picker_empty">У этого актёра нет доступных фильмов для продолжения</string>
     <string name="movie_picker_back">Назад</string>
     <string name="movie_picker_retry">Повторить</string>
     <string name="movie_picker_unknown_year">без года</string>
@@ -64,7 +64,7 @@
     <string name="actor_picker_title">Кого выберете</string>
     <string name="actor_picker_subtitle">из фильма «%1$s»</string>
     <string name="actor_picker_target_badge">Цель</string>
-    <string name="actor_picker_empty">Актёры не найдены</string>
+    <string name="actor_picker_empty">В этом фильме не найдено других актёров</string>
     <string name="actor_picker_back">Назад</string>
     <string name="actor_picker_retry">Повторить</string>
 
@@ -117,4 +117,52 @@
     <string name="common_unknown_movie">Фильм %1$d</string>
     <string name="content_description_photo">Фото</string>
     <string name="content_description_poster">Постер</string>
+
+    <!-- Экран ошибки (docs/01_concept.md §2.10, §6.1/6.2/6.3/6.19) -->
+    <string name="error_screen_title">Что-то пошло не так</string>
+    <string name="error_title_not_found">Партия не найдена</string>
+    <string name="error_text_not_found">Данные партии не найдены в хранилище. Начните новую игру.</string>
+    <string name="error_title_network">Нет соединения</string>
+    <string name="error_text_network">Не удалось подключиться к базе фильмов. Проверьте интернет и попробуйте снова.</string>
+    <string name="error_title_server">База фильмов недоступна</string>
+    <string name="error_text_server">TMDB временно недоступен. Попробуйте позже.</string>
+    <string name="error_title_rate_limit">Слишком много запросов</string>
+    <string name="error_text_rate_limit">Слишком много запросов к базе фильмов. Подождите немного.</string>
+    <string name="error_title_data">Некорректные данные</string>
+    <string name="error_text_data">Ответ базы фильмов пуст или некорректен. Повторите запрос.</string>
+    <string name="error_title_generation">Не удалось подобрать пару</string>
+    <string name="error_text_generation">Не удалось подобрать подходящую пару. Попробуйте ещё раз.</string>
+    <string name="error_menu">В меню</string>
+
+    <!-- Ошибки генерации пары (docs/01_concept.md §6.1/6.3) -->
+    <string name="setup_error_no_pair">Не удалось подобрать подходящую пару. Попробуйте ещё раз.</string>
+    <string name="setup_error_budget">Лимит запросов к базе фильмов исчерпан. Подождите немного и попробуйте снова.</string>
+
+    <!-- Тупик (docs/04_algorithms.md §4) -->
+    <string name="game_deadend_title">Нет доступных переходов</string>
+    <string name="game_deadend_no_movies">У этого актёра нет доступных фильмов.</string>
+    <string name="game_deadend_no_other_actors">В фильмах этого актёра нет других актёров.</string>
+    <string name="game_deadend_no_path">Пути к цели не найдено.</string>
+    <string name="game_deadend_undo">Отменить шаг</string>
+    <string name="game_deadend_surrender">Сдаться</string>
+    <string name="game_deadend_new_game">Новая партия</string>
+    <string name="game_target_near">Цель достижима одним переходом</string>
+    <string name="game_undo">Отменить шаг</string>
+
+    <!-- Пустые состояния (docs/01_concept.md §6.5/6.6/6.7) -->
+    <string name="movie_picker_empty_hint">Вернитесь назад или завершите партию</string>
+    <string name="movie_picker_load_error">Не удалось загрузить фильмы актёра</string>
+    <string name="actor_picker_empty_hint">Вернитесь назад и выберите другой фильм</string>
+    <string name="actor_picker_load_error">Не удалось загрузить актёров фильма</string>
+    <string name="actor_picker_target_not_found">Целевой актёр не найден в актёрском составе этого фильма</string>
+
+    <!-- Оффлайн-режим (docs/01_concept.md §6.2) -->
+    <string name="offline_banner">Нет сети — показываются сохранённые данные</string>
+
+    <!-- Домашний экран: активная партия (docs/01_concept.md §6.17) -->
+    <string name="home_continue">Продолжить игру</string>
+
+    <!-- Свёрнутая цепочка (docs/01_concept.md §6.18) -->
+    <string name="chain_show_all">Показать всё</string>
+    <string name="chain_collapsed_hint">Свёрнуто: показано %1$d последних шагов</string>
 </resources>
