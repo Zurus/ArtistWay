@@ -7,10 +7,43 @@
 MVP — локальная игра без собственного бэкенда: пара генерируется
 и проверяется на устройстве игрока.
 
-**Текущее состояние:** выполнен Этап 1 и срез 1 Этапа 2 из `docs/05_roadmap.md`
-— каркас проекта, доменные контракты, data layer: Retrofit + Room +
-репозиторий фильмографии (пока без UI — экраны ещё заглушки).
-Приложение собирается и запускается, показывая заглушку «Экран запуска».
+**Текущее состояние:** MVP выполнен — все 6 этапов `docs/05_roadmap.md`
+(см. статусы в `docs/prompts.md`), приёмка — `docs/QA_CHECKLIST.md`.
+Приложение: полная игровая петля (генерация пары → переходы → победа/сдача/тупик),
+офлайн-режим, восстановление партии, R8-минифицируемый release-билд.
+
+---
+
+## Возможности (MVP)
+
+- Генерация гарантированно решаемой пары актёров (BFS по графу
+  «актёр ↔ фильм», бюджет запросов/узлов/времени).
+- Игровая петля: выбор фильма → выбор актёра → подтверждение перехода
+  с превью и валидацией цепочки; отмена не фиксирует шаг.
+- Проверка тупика после каждого шага (локально + через TMDB), подсказка
+  «цель достижима одним переходом», «Отменить шаг» (undo).
+- Экраны победы и проигрыша (сдача/тупик/ошибка) с итоговой цепочкой.
+- Офлайн: баннер «нет сети», кэш TMDB-данных в Room, сохранённые данные
+  доступны без сети; ошибки — понятные тексты и «Повторить».
+- Активная партия переживает перезапуск приложения (восстановление из Room).
+- Release-сборка с R8 (`isMinifyEnabled` + `isShrinkResources`), правила в
+  `app/proguard-rules.pro`.
+
+## Ограничения (осознанные, MVP)
+
+- **Локаль TMDB = `en-US`**: интерфейс на русском, названия фильмов/актёров
+  — английские (решение зафиксировано в `docs/01_concept.md`).
+- **TMDB заблокирован в РФ**: разработка и игра — через VPN;
+  reverse-proxy для обхода — пост-MVP фича.
+- **Без лимита шагов у игрока**: `maxSteps` — только глубина BFS при
+  генерации; проиграть можно сдачей или тупиком.
+- **Тесты на Robolectric** (JVM), не instrumented: в CI нет устройства;
+  отклонение документировано (`docs/QA_CHECKLIST.md`, A6/A7).
+- **Room-тесты** — через Robolectric, не instrumented (то же отклонение).
+- **Release-APK не подписан** (`app-release-unsigned.apk`) — подпись
+  ключом дистрибуции не входит в MVP.
+- Ключ TMDB лежит в `BuildConfig` (обычный APK — извлекаем); пост-MVP —
+  серверный прокси без ключа на клиенте.
 
 ---
 
@@ -20,14 +53,14 @@ MVP — локальная игра без собственного бэкенд
 |---|---|---|
 | JDK | **17** (LTS) | [Eclipse Temurin](https://adoptium.net/temurin/releases/) — `JAVA_HOME` должен указывать на него |
 | Android Studio | **2024.x (Ladybug) или новее** | [developer.android.com/studio](https://developer.android.com/studio) |
-| Android SDK | платформа **35**, build-tools **35.0.1**, platform-tools, emulator | ставятся автоматически при первом запуске Android Studio (SDK Manager) |
+| Android SDK | платформа **35**, build-tools **35.0.1**, platform-tools | ставятся автоматически (SDK Manager) |
 | ОС | Windows 10+, macOS, Linux | — |
-| ОЗУ | **8 ГБ минимум**, 16 ГБ рекомендуется | одновременно работают IDE + Gradle + эмулятор |
-| Диск | ~10 ГБ свободно | SDK, кэши Gradle, образ эмулятора |
-| Интернет | нужен для первой сборки | скачиваются Gradle 8.9, зависимости, образ эмулятора (~1,5 ГБ) |
+| ОЗУ | **8 ГБ минимум** | IDE + Gradle |
+| Интернет | нужен для первой сборки | Gradle 8.9, зависимости |
 
-> **Ключ TMDB для сборки не нужен.** Он понадобится с Этапа 2 roadmap
-> (реальные сетевые запросы) — см. раздел «Ключ TMDB» ниже.
+Версии стека (каталог `gradle/libs.versions.toml`): AGP 8.7.3, Kotlin 2.1.21
+(KSP2), Compose BOM 2024.12.01, Hilt 2.54, Room 2.7.2, Retrofit 2.11.0,
+OkHttp 4.12.0, kotlinx-serialization 1.7.3, detekt 1.23.7.
 
 ---
 
@@ -48,61 +81,66 @@ MVP — локальная игра без собственного бэкенд
 
 Ключ попадает в `BuildConfig.TMDB_API_KEY` только в вашу локальную
 сборку: `local.properties` находится в `.gitignore` и в репозиторий
-не коммитится (см. `getting_started.md`).
+не коммитится.
+
+> Без ключа сборка и unit/UI-тесты проходят (тесты используют in-memory
+> двойники репозиториев), но приложение не сможет загрузить реальные
+> данные TMDB.
 
 ---
 
-## Запуск через эмулятор (пошагово)
-
-### 1. Открыть проект
-
-Android Studio → **Open** → выберите папку проекта (`ArtistWay`) → **OK**.
-Дождитесь завершения **Gradle Sync** (внизу статус-бар; при первом
-синхронизировании скачиваются зависимости).
-
-Если Android Studio спрашивает, какой JDK использовать — выберите
-встроенный **JBR (JetBrains Runtime 17+)** или свой JDK 17.
-
-### 2. Создать эмулятор
-
-1. **Tools → Device Manager** (или иконка телефона в правом верхнем углу) →
-   **Create Virtual Device** (кнопка с «+»).
-2. Устройство: выберите **Pixel 7** (или любое) → **Next**.
-3. Образ: вкладка **API Level** → **API 35 (Android 15)** →
-   если образ не скачан, нажмите на стрелку и дождитесь загрузки
-   (~1,5 ГБ) → **Next**.
-4. **Create** → в Device Manager нажмите кнопку **▶ (Play)** и дождитесь
-   полной загрузки системы (~1 минута).
-
-> На Windows ускорение виртуализации (Hyper-V / WHPX) ставится
-> автоматически. Без него эмулятор будет нестерпимо медленным.
-
-### 3. Запустить приложение
-
-1. В верхней панели выберите только что созданный эмулятор.
-2. Нажмите зелёную кнопку **Run** (Shift+F10).
-3. **Ожидаемый результат:** приложение «КиноСвязи» открывается и
-   показывает экран с текстом **«Экран запуска»** по центру.
-   Это заглушка Этапа 1 — поведение правильное.
-
----
-
-## Сборка из командной строки
+## Сборка
 
 ```bash
-./gradlew assembleDebug   # сборка debug-APK
-./gradlew test            # unit-тесты (без устройства)
-./gradlew detekt          # статический анализ кода
+./gradlew assembleDebug    # debug-APK:  app/build/outputs/apk/debug/
+./gradlew assembleRelease  # release-APK с R8: app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
-APK после сборки: `app/build/outputs/apk/debug/app-debug.apk`.
+Gradle не нужен в системе — используется обёртка `./gradlew`
+(при первом запуске скачает Gradle 8.9).
 
-Gradle не нужен в системе отдельно — используется обёртка
-`./gradlew` (при первом запуске скачает Gradle 8.9).
+## Тесты и анализ
 
-Реальный Android-телефон вместо эмулятора: включите «Отладку по USB»
-(Настройки → Для разработчиков) и подключите кабель — устройство
-появится в панели запуска.
+```bash
+./gradlew test        # 171 тест: domain, data, ViewModel, Compose UI (Robolectric)
+./gradlew detekt      # статический анализ (конфиг detekt.yml)
+./gradlew lint        # Android Lint
+```
+
+- **Compose UI-тесты** (`app/src/test/.../ui/MainActivityUiTest.kt`):
+  happy path до победы, отмена перехода, тупик, ошибка сети в MoviePicker.
+  Hilt-граф в тестах подменяет `RepositoryModule` in-memory двойниками
+  (`UiTestRepositoriesModule`, `@TestInstallIn(replaces=…)`), поэтому
+  сценарии детерминированы и не зависят от сети.
+- **Room-поведение** (восстановление сессии, undo) покрыто Robolectric-
+  тестами `GameSessionRepositoryTest`/`GameViewModelTest`.
+- Полный чеклист приёмки — `docs/QA_CHECKLIST.md` (включая ручной смоук
+  на реальных данных TMDB и замер бюджета на 10 генерациях).
+
+---
+
+## Структура пакетов
+
+Одно модульное приложение `:app`, пакет `com.zurus.kinosvyazi`
+(`docs/02_architecture.md`):
+
+| Пакет | Назначение |
+|---|---|
+| `core/common` | `Result`, `AppError`, `Clock`, диспатчеры |
+| `core/ui` | `UiState`, маппер ошибок, `ChainResolver` |
+| `data/remote` | TMDB: Retrofit API, DTO, маппинг ошибок, rate-limit, ApiKey-интерцептор |
+| `data/local` | Room: сущности, DAO, база, конвертеры |
+| `data/repository` | реализации репозиториев домена (TMDB + Room + генератор пар) |
+| `data/cache` | in-memory кэш и политика freshness |
+| `data/network` | конфигурация сети, наблюдатель офлайна |
+| `domain/model` | `Actor`, `Movie`, `GameSession`, `GamePair`, `ChainStep`, `GameResult` |
+| `domain/usecase` | игровые UseCase (старт, переход, undo, победа/сдача, тупик) |
+| `domain/util` | `Bfs`, `PairGenerator`, `ChainValidator`, `Budget`, `GenCache` |
+| `feature/*` | MVVM-фичи: home, rules, game (+setup), moviepicker, actorpicker, transition, chain, result, error |
+| `ui/navigation` | маршруты и `NavHost` (аргументы в стеке — переживают process death) |
+| `ui/components` | переиспользуемые Compose-компоненты |
+| `ui/theme` | Material 3 тема |
+| `di` | Hilt-модули (App, Database, Network, Mapper, Repository) |
 
 ---
 
@@ -111,9 +149,13 @@ Gradle не нужен в системе отдельно — используе
 | Файл | Назначение |
 |---|---|
 | `getting_started.md` | инструкция по разработке: этапы, промпты, правила коммитов, как добавлять фичи |
+| `docs/QA_CHECKLIST.md` | чеклист приёмки MVP (автоматика + ручной смоук + бюджет) |
 | `docs/01_concept.md` | концепция игры (источник правды по геймплею) |
 | `docs/02_architecture.md` | архитектура (Compose, Hilt, Clean Architecture, пакеты) |
 | `docs/03_data_layer.md` | data layer (TMDB, Room, офлайн) |
 | `docs/04_algorithms.md` | алгоритмы (BFS, генерация пар, тупики) |
 | `docs/05_roadmap.md` | план MVP: 6 этапов, файлы, критерии приёмки |
 | `docs/prompts.md` | промпты для последовательной работы с ИИ (статусы выполнения) |
+
+> `docs/` — материалы спецификаций (в т.ч. для ИИ); человеческая документация
+> — корневые файлы (`README.md`, `getting_started.md`, `docs/QA_CHECKLIST.md`).

@@ -47,6 +47,7 @@ import com.zurus.kinosvyazi.ui.components.ActorPhoto
 import com.zurus.kinosvyazi.ui.components.ChainView
 import com.zurus.kinosvyazi.ui.components.UiStateView
 import com.zurus.kinosvyazi.ui.navigation.NavRoutes
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -70,6 +71,7 @@ fun TransitionScreen(
         }
     }
     val scope = rememberCoroutineScope()
+
 
     Scaffold(
         topBar = {
@@ -128,13 +130,16 @@ fun TransitionScreen(
                 if (content.validation is ResultValidation.Valid) {
                     Button(
                         onClick = {
-                            scope.launch {
+                            scope.launch(Dispatchers.Main) {
                                 when (viewModel.confirm()) {
                                     ConfirmOutcome.Win ->
                                         navController.navigate(NavRoutes.resultWon(sessionId)) {
                                             popUpTo(NavRoutes.HOME) { inclusive = true }
                                         }
-                                    ConfirmOutcome.Ok -> navController.popBackStack()
+                                    // docs/01_concept.md §2.7: подтверждённый переход
+                                    // возвращает к экрану партии.
+                                    ConfirmOutcome.Ok ->
+                                        navController.popBackStack(route = NavRoutes.GAME, inclusive = false)
                                     ConfirmOutcome.Failure -> Unit
                                 }
                             }
@@ -147,7 +152,7 @@ fun TransitionScreen(
                     }
                 }
                 OutlinedButton(
-                    onClick = { navController.popBackStack() },
+                    onClick = { navController.popBackStack(route = NavRoutes.GAME, inclusive = false) },
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) {
                     Text(stringResource(R.string.transition_cancel))

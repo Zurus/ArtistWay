@@ -55,6 +55,7 @@ import com.zurus.kinosvyazi.ui.components.OfflineBanner
 import com.zurus.kinosvyazi.ui.components.UiStateView
 import com.zurus.kinosvyazi.ui.navigation.NavRoutes
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -119,7 +120,7 @@ fun GameScreen(
                     onPickMovie = { navController.navigate(NavRoutes.moviePicker(sessionId)) },
                     onSurrender = { showSurrenderDialog = true },
                     onUndo = {
-                        scope.launch { viewModel.undo() }
+                        scope.launch(Dispatchers.Main) { viewModel.undo() }
                     },
                 )
             }
@@ -133,7 +134,7 @@ fun GameScreen(
             text = { Text(stringResource(R.string.game_surrender_confirm_text)) },
             confirmButton = {
                 TextButton(onClick = {
-                    scope.launch {
+                    scope.launch(Dispatchers.Main) {
                         if (viewModel.surrender()) {
                             showSurrenderDialog = false
                             navController.navigate(NavRoutes.resultNonWin(sessionId)) {
@@ -162,10 +163,10 @@ fun GameScreen(
                 canUndo = content.session.chain.isNotEmpty(),
                 onUndo = {
                     showDeadEndDialog = false
-                    scope.launch { viewModel.undo() }
+                    scope.launch(Dispatchers.Main) { viewModel.undo() }
                 },
                 onSurrender = {
-                    scope.launch {
+                    scope.launch(Dispatchers.Main) {
                         if (viewModel.surrender()) {
                             showDeadEndDialog = false
                             navController.navigate(NavRoutes.resultNonWin(sessionId)) {

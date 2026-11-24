@@ -2,6 +2,7 @@ package com.zurus.kinosvyazi.ui.navigation
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.navigation.NavType
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -39,34 +40,62 @@ fun AppNavHost(navController: NavHostController = rememberNavController()) {
         composable(NavRoutes.HOME) { HomeScreen(navController) }
         composable(NavRoutes.RULES) { RulesScreen(navController) }
         composable(NavRoutes.GAME_SETUP) { GameSetupScreen(navController) }
-        composable(NavRoutes.GAME) { entry ->
+        composable(
+            route = NavRoutes.GAME,
+            arguments = listOf(navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType }),
+        ) { entry ->
             GameScreen(navController, entry.requireSessionId())
         }
-        composable(NavRoutes.MOVIE_PICKER) { entry ->
+        composable(
+            route = NavRoutes.MOVIE_PICKER,
+            arguments = listOf(navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType }),
+        ) { entry ->
             MoviePickerScreen(navController, entry.requireSessionId())
         }
-        composable(NavRoutes.ACTOR_PICKER) { entry ->
+        composable(
+            route = NavRoutes.ACTOR_PICKER,
+            arguments = listOf(
+                navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType },
+                navArgument(NavRoutes.MOVIE_ID) { type = NavType.IntType },
+            ),
+        ) { entry ->
             ActorPickerScreen(
                 navController = navController,
                 sessionId = entry.requireSessionId(),
                 movieId = entry.requireMovieId(),
             )
         }
-        composable(NavRoutes.TRANSITION) { entry ->
+        composable(
+            route = NavRoutes.TRANSITION,
+            arguments = listOf(
+                navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType },
+                navArgument(NavRoutes.MOVIE_ID) { type = NavType.IntType },
+                navArgument(NavRoutes.TO_ACTOR_ID) { type = NavType.IntType },
+            ),
+        ) { entry ->
             TransitionScreen(
                 navController = navController,
                 sessionId = entry.requireSessionId(),
                 movieId = entry.requireMovieId(),
-                toActorId = entry.arguments?.getInt(NavRoutes.TO_ACTOR_ID) ?: 0,
+                toActorId = entry.requireToActorId(),
             )
         }
-        composable(NavRoutes.RESULT_WON) { entry ->
+        composable(
+            route = NavRoutes.RESULT_WON,
+            arguments = listOf(navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType }),
+        ) { entry ->
             GameResultScreen(navController, entry.requireSessionId())
         }
-        composable(NavRoutes.RESULT_NON_WIN) { entry ->
+        composable(
+            route = NavRoutes.RESULT_NON_WIN,
+            arguments = listOf(navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType }),
+        ) { entry ->
             GameResultNonWinScreen(navController, entry.requireSessionId())
         }
-        composable(NavRoutes.CHAIN) { entry ->
+        composable(
+            route = NavRoutes.CHAIN,
+            arguments = listOf(navArgument(NavRoutes.SESSION_ID) { type = NavType.StringType }),
+        ) { entry ->
             ChainScreen(navController, entry.requireSessionId())
         }
         composable(
@@ -88,4 +117,9 @@ private fun androidx.navigation.NavBackStackEntry.requireSessionId(): String =
 private fun androidx.navigation.NavBackStackEntry.requireMovieId(): Int =
     requireNotNull(arguments?.getInt(NavRoutes.MOVIE_ID)) {
         "Маршрут без аргумента ${NavRoutes.MOVIE_ID}"
+    }
+
+private fun androidx.navigation.NavBackStackEntry.requireToActorId(): Int =
+    requireNotNull(arguments?.getInt(NavRoutes.TO_ACTOR_ID)) {
+        "Маршрут без аргумента ${NavRoutes.TO_ACTOR_ID}"
     }
