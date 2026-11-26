@@ -24,8 +24,8 @@ import kotlin.random.Random
  * docs/05_roadmap.md, Этап 3).
  *
  * MVP (простой вариант): пары «стартовый актёр → целевой актёр»
- * **зашиты** в [HARDCODED_PAIRS] — все упорядоченные комбинации звёзд
- * из [PAIR_ACTORS]. На каждом запуске список перемешивается по [seed]
+ * **зашиты** в [HARDCODED_PAIRS] — все упорядоченные комбинации актёров
+ * пула из [PAIR_ACTORS]. На каждом запуске список перемешивается по [seed]
  * (детерминированно), пары перебираются по очереди, и каждая проверяется
  * целевым BFS ([Bfs.bfsShortestPath]) в пределах [Budget]:
  *
@@ -148,15 +148,18 @@ class GamePairRepositoryImpl @Inject constructor(
     }
 
     /**
-     * Звёзды с проверенными TMDB `person_id` (MVP). Все — кастовые
-     * голливудские актёры с большим пересечением составов: почти любая
-     * пара достижима за 2–4 шага; нерешаемые в пределах `maxSteps`
-     * отбраковываются целевым BFS в момент генерации.
+     * Пул актёров (D2, docs/debugging.md): 107 TMDB-актёров — данные
+     * `tools/generate_start_pool.py` (97 популярных фильмов TMDB,
+     * пересечение составов ≥ 2; имена/ID — ответы самого API), плюс
+     * 10 звёзд legacy, не вошедших в пул. Дубликаты старого списка
+     * удалены в пользу ID из пула (RDJ `2871`→`3223`, Morgan Freeman
+     * `1972`→`192`, Christian Bale `11464`→`3894`): одна и та же
+     * реальная фигура под двумя ID дала бы «пару» актёра с самим собой.
      *
-     * Расширение списка = добавить ID сюда (P4: заменить на seed-список
-     * «top-N по popularity» из данных TMDB).
+     * Перегенерация пула — запуск скрипта (нужен TMDB-ключ), код не
+     * меняется. P4: заменить список на «top-N по popularity» из TMDB.
      */
-    private companion object {
+    internal companion object {
         /**
          * D1: per-pair лимит узлов (≈ дефолтный §3.6): один BFS не может
          * замахнуться на бесконечное раскрытие.
@@ -171,6 +174,114 @@ class GamePairRepositoryImpl @Inject constructor(
         private const val PAIR_MAX_WALL_CLOCK_MS = 30_000L
 
         val PAIR_ACTORS: List<Int> = listOf(
+            16851, // Josh Brolin
+            3223, // Robert Downey Jr.
+            16828, // Chris Evans
+            505710, // Zendaya
+            1136406, // Tom Holland
+            103, // Mark Ruffalo
+            1813, // Anne Hathaway
+            2283, // Stanley Tucci
+            9281, // Elizabeth Banks
+            27972, // Josh Hutcherson
+            55636, // Donald Sutherland
+            57755, // Woody Harrelson
+            72129, // Jennifer Lawrence
+            74568, // Chris Hemsworth
+            237455, // Sam Claflin
+            530025, // Willow Shields
+            1190668, // Timothée Chalamet
+            1211946, // P.J. Byrne
+            1373737, // Florence Pugh
+            1233, // Philip Seymour Hoffman
+            1245, // Scarlett Johansson
+            1640, // Stellan Skarsgård
+            2954, // Jeffrey Wright
+            3810, // Javier Bardem
+            3895, // Michael Caine
+            6162, // Paul Bettany
+            8691, // Zoe Saldaña
+            9048, // Clark Gregg
+            15277, // Jon Favreau
+            20089, // Jena Malone
+            22970, // Peter Dinklage
+            44079, // Charlotte Rampling
+            55936, // Jemaine Clement
+            71580, // Benedict Cumberbatch
+            83002, // Jessica Chastain
+            89599, // Eric Bauza
+            91606, // Tom Hiddleston
+            96066, // Liam Hemsworth
+            117642, // Jason Momoa
+            225730, // Ryunosuke Kamiki
+            543530, // Dave Bautista
+            932967, // Mahershala Ali
+            933238, // Rebecca Ferguson
+            1880755, // Andrew Schulz
+            19, // Allison Janney
+            192, // Morgan Freeman
+            515, // Glenn Close
+            887, // Owen Wilson
+            1229, // Jeff Bridges
+            1231, // Julianne Moore
+            1892, // Matt Damon
+            1896, // Don Cheadle
+            2037, // Cillian Murphy
+            2231, // Samuel L. Jackson
+            2963, // Nicolas Cage
+            3141, // Marisa Tomei
+            3894, // Christian Bale
+            8210, // Wes Bentley
+            10401, // Blythe Danner
+            10980, // Daniel Radcliffe
+            10989, // Rupert Grint
+            11288, // Robert Pattinson
+            12052, // Gwyneth Paltrow
+            13014, // Toby Jones
+            17052, // Topher Grace
+            17604, // Jeremy Renner
+            20766, // Richard E. Grant
+            22226, // Paul Rudd
+            27578, // Elliot Page
+            30082, // Benedict Wong
+            38673, // Channing Tatum
+            43667, // Kisuke Iida
+            45405, // Jay Duplass
+            55585, // Sam Spruell
+            56446, // John Cena
+            58502, // Natalie Dormer
+            71070, // Amanda Seyfried
+            77069, // Lenny Kravitz
+            79006, // Kenji Mizuhashi
+            83854, // David Dastmalchian
+            100766, // Sakura Ando
+            110298, // Shobana
+            111640, // Munetaka Aoki
+            111691, // Hidetaka Yoshioka
+            121716, // Kuranosuke Sasaki
+            167564, // Paul Sparks
+            172069, // Chadwick Boseman
+            205923, // Babs Olusanmokun
+            220914, // Peta Sergeant
+            457386, // Arian Moayed
+            513677, // Henry Lloyd-Hughes
+            543261, // Karen Gillan
+            561869, // Amandla Stenberg
+            986808, // Wyatt Russell
+            1091324, // Rob Delaney
+            1161474, // Yuki Yamada
+            1477958, // Matt Lowe
+            1516266, // Minami Hamabe
+            1542283, // Adam Silver
+            1649152, // Jacob Batalon
+            1731537, // Hwang Seok-jeong
+            2028037, // Tramell Tillman
+            2430993, // Miou Tanaka
+            2569691, // Young Mazino
+            2593824, // Hwang Jae-yeol
+            4019851, // Simms May
+            4389435, // Sae Nagatani
+            // legacy-звёзды (MVP), не вошедшие в пул:
             31, // Tom Hanks
             38, // Harrison Ford
             39, // Robin Williams
@@ -180,13 +291,10 @@ class GamePairRepositoryImpl @Inject constructor(
             385, // Johnny Depp
             5381, // Meryl Streep
             9226, // Tom Cruise
-            11464, // Christian Bale
-            1972, // Morgan Freeman
             2518, // Leonardo DiCaprio
-            2871, // Robert Downey Jr.
         )
 
-        /** Все упорядоченные пары (стартовый, целевой), 13 × 12 = 156. */
+        /** Все упорядоченные пары (стартовый, целевой), 117 × 116 = 13,572. */
         val HARDCODED_PAIRS: List<Pair<Int, Int>> = PAIR_ACTORS.flatMap { start ->
             PAIR_ACTORS.filter { it != start }.map { start to it }
         }

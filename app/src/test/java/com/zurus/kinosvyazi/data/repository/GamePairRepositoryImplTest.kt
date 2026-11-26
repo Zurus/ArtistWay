@@ -150,8 +150,8 @@ class GamePairRepositoryImplTest {
         // D1: у актёра 38 «хаб»-фильм на 1600 ко-актёров — BFS от него
         // бьёт в per-pair лимит узлов (1500). В старом коде
         // (break на BfsResult.BudgetExceeded) вся генерация умирала на
-        // первой такой паре; теперь — пробуем следующую. seed=8 =>
-        // первая пара в shuffle — (38, 39) (дорогая).
+        // первой такой паре; теперь — пробуем следующую. seed=109 =>
+        // первая пара в shuffle — (38, 543261) (дорогая).
         val graph = FakeGraph()
             .edge(31, 101).edge(900, 101)
             .edge(900, 202).edge(122, 202)
@@ -160,7 +160,7 @@ class GamePairRepositoryImplTest {
         }
         val budget = Budget(maxRequests = 5000, maxNodesVisited = 100_000, maxWallClockMs = 60_000)
 
-        val result = repo(graph, budget = budget).generatePair(seed = 8L)
+        val result = repo(graph, budget = budget).generatePair(seed = 109L)
 
         val pair = (result as Result.Success).value
         assertEquals(
@@ -169,5 +169,39 @@ class GamePairRepositoryImplTest {
             setOf(pair.startActor.tmdbId, pair.targetActor.tmdbId),
         )
         assertEquals("путь из 2 шагов", 2, pair.shortestPath.size)
+    }
+
+    @Test
+    fun `pool has 117 unique actors (D2)`() {
+        assertEquals(
+            "пул = 107 (generate_start_pool.py) + 10 legacy-звёзд",
+            117,
+            GamePairRepositoryImpl.PAIR_ACTORS.size,
+        )
+        assertEquals(
+            "дублей ID в пуле нет",
+            GamePairRepositoryImpl.PAIR_ACTORS.size,
+            GamePairRepositoryImpl.PAIR_ACTORS.toSet().size,
+        )
+    }
+
+    @Test
+    fun `pairs are N*(N-1), no self-pairs (D2)`() {
+        val pairs = GamePairRepositoryImpl.HARDCODED_PAIRS
+        assertEquals("117*116 = 13,572 пар", 117 * 116, pairs.size)
+        assertTrue("само-пар нет", pairs.none { it.first == it.second })
+    }
+
+    @Test
+    fun `RDJ duplicate removed, pool ID kept (D2)`() {
+        assertTrue(
+            "RDJ: пуловый ID 3223 на месте (принят на доверии, проверить по VPN)",
+            GamePairRepositoryImpl.PAIR_ACTORS.contains(3223),
+        )
+        assertTrue(
+            "RDJ: старый ID 2871 удалён (дубль = пара «актёр с самим собой»)",
+            !GamePairRepositoryImpl.PAIR_ACTORS.contains(2871),
+        )
+        assertTrue("legacy-звезда Tom Hanks сохранена", GamePairRepositoryImpl.PAIR_ACTORS.contains(31))
     }
 }
