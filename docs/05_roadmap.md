@@ -1,6 +1,6 @@
 # docs/05_roadmap.md
 
-# Дорожная карта реализации «КиноСвязи»
+# Дорожная карта реализации «КиноНить»
 
 Документ разбивает MVP на 6 последовательных этапов. Каждый этап заканчивается работающим инкрементом, который можно запустить, проверить и продемонстрировать. Оценки — в часах для мидл-разработчика, знакомого с Android/Compose/Hilt, но не с этим проектом.
 
@@ -36,7 +36,7 @@ gradle/libs.versions.toml
 app/build.gradle.kts
 app/src/main/AndroidManifest.xml
 
-app/src/main/java/.../KinoSvyaziApp.kt
+app/src/main/java/.../CineThreadApp.kt
 app/src/main/java/.../MainActivity.kt
 app/src/main/java/.../ui/theme/Theme.kt
 app/src/main/java/.../ui/theme/Color.kt

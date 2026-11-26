@@ -19,7 +19,7 @@ deadEndSearchDepth=8)`.
 | A3 | Lint (включая манифест/разрешения) | `./gradlew lint` | 0 ошибок | ✅ |
 | A4 | Release-сборка с R8 | `./gradlew assembleRelease` | APK собирается, `isMinifyEnabled=true`, `isShrinkResources=true` | ✅ |
 | A5 | `TODO`/`FIXME` в production-коде | `grep -rn "TODO\|FIXME" app/src` | отсутствуют | ✅ |
-| A6 | Compose UI-тесты (Этап 6, п.2) | `./gradlew test --tests "com.zurus.kinosvyazi.ui.MainActivityUiTest"` | 4/4: happy path до победы, отмена перехода, тупик, ошибка сети в MoviePicker | ✅ |
+| A6 | Compose UI-тесты (Этап 6, п.2) | `./gradlew test --tests "com.zurus.cinethread.ui.MainActivityUiTest"` | 4/4: happy path до победы, отмена перехода, тупик, ошибка сети в MoviePicker | ✅ |
 | A7 | Room-поведение (восстановление активной сессии, undo) | `./gradlew test` (Robolectric-тесты `GameSessionRepositoryTest`, `GameViewModelTest`) | покрыто; отклонение от instrumented-тестов — документировано (нет устройства в CI) | ✅ |
 | A8 | Ключ TMDB в репозитории не попадает | `git ls-files` + `.gitignore` | `local.properties` не закоммичен, ключ — только в `BuildConfig` | ✅ |
 

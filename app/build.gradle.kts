@@ -23,11 +23,11 @@ val tmdbApiKey: String =
     }
 
 android {
-    namespace = "com.zurus.kinosvyazi"
+    namespace = "com.zurus.cinethread"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.zurus.kinosvyazi"
+        applicationId = "com.zurus.cinethread"
         minSdk = 26
         targetSdk = 35
         versionCode = 1

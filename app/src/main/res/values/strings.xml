@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">КиноСвязи</string>
+    <string name="app_name">КиноНить</string>
 
     <!-- Сообщения об ошибках (docs/01_concept.md §7.12: кратко, по-русски, без технических деталей) -->
     <string name="error_network">Сбой сети. Проверьте соединение и повторите.</string>
