@@ -2,6 +2,7 @@ package com.zurus.kinosvyazi.di
 
 import com.zurus.kinosvyazi.core.common.Clock
 import com.zurus.kinosvyazi.core.common.DefaultDispatcher
+import com.zurus.kinosvyazi.core.common.GenerationBudget
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.common.MainDispatcher
 import com.zurus.kinosvyazi.data.time.Clock as DataClock
@@ -56,10 +57,31 @@ object AppModule {
     @Singleton
     fun providePairGenConfig(): PairGenConfig = PairGenConfig()
 
-    /** Фабрика: каждый вызов — свежий (мутабельный) [Budget]. */
+    /**
+     * Фабрика: каждый вызов — свежий (мутабельный) [Budget] со строгим
+     * дефолтным профилем — справочные проверки во время партии
+     * (`CheckDeadEndUseCase`) не должны подвешивать геймплей.
+     */
     @Provides
     @Singleton
     fun provideBudgetFactory(): () -> Budget = {
         Budget()
+    }
+
+    /**
+     * Фабрика бюджета генерации пары (docs/debugging.md D1): щадящий
+     * профиль [Budget.GENERATION_*] — реальный канал ~1 запрос/с,
+     * 6-секундного wall-clock не хватало даже на один уровень
+     * фильмографии звезды.
+     */
+    @Provides
+    @Singleton
+    @GenerationBudget
+    fun provideGenerationBudgetFactory(): () -> Budget = {
+        Budget(
+            maxRequests = Budget.GENERATION_MAX_REQUESTS,
+            maxNodesVisited = Budget.GENERATION_MAX_NODES_VISITED,
+            maxWallClockMs = Budget.GENERATION_MAX_WALL_CLOCK_MS,
+        )
     }
 }

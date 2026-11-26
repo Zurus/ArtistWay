@@ -7,7 +7,7 @@
     <string name="error_server">Сервис TMDB временно недоступен. Попробуйте позже.</string>
     <string name="error_rate_limit">Превышен лимит запросов к TMDB. Повторите через минуту.</string>
     <string name="error_data_invalid">Некорректные данные от TMDB. Повторите попытку.</string>
-    <string name="error_budget_exceeded">Исчерпан бюджет вычислений. Попробуйте ещё раз.</string>
+    <string name="error_budget_exceeded">Исчерпан бюджет запросов. Проверьте соединение и попробуйте ещё раз.</string>
 
     <!-- Экран запуска (§2.1) -->
     <string name="home_tagline">Постройте цепочку от одного актёра к другому через фильмы</string>
@@ -31,7 +31,7 @@
     <string name="rules_start_game">Начать игру</string>
 
     <!-- Экран генерации партии (§2.3) -->
-    <string name="setup_generating">Генерируем пару…</string>
+    <string name="setup_generating">Подбираем пару… На медленном соединении это может занять до двух минут</string>
     <string name="setup_generating_hint">Ищем связку актёров, которую можно пройти за несколько шагов</string>
     <string name="setup_error_title">Не удалось создать партию</string>
     <string name="setup_retry">Повторить</string>
@@ -136,7 +136,7 @@
 
     <!-- Ошибки генерации пары (docs/01_concept.md §6.1/6.3) -->
     <string name="setup_error_no_pair">Не удалось подобрать подходящую пару. Попробуйте ещё раз.</string>
-    <string name="setup_error_budget">Лимит запросов к базе фильмов исчерпан. Подождите немного и попробуйте снова.</string>
+    <string name="setup_error_budget">Не удалось подобрать пару. Проверьте соединение и попробуйте ещё раз.</string>
 
     <!-- Тупик (docs/04_algorithms.md §4) -->
     <string name="game_deadend_title">Нет доступных переходов</string>

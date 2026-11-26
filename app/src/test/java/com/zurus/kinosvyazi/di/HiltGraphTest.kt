@@ -2,6 +2,7 @@ package com.zurus.kinosvyazi.di
 
 import android.app.Application
 import com.zurus.kinosvyazi.core.common.Clock
+import com.zurus.kinosvyazi.core.common.GenerationBudget
 import com.zurus.kinosvyazi.core.common.IoDispatcher
 import com.zurus.kinosvyazi.core.ui.ChainResolver
 import com.zurus.kinosvyazi.data.network.ConnectivityObserver
@@ -83,6 +84,10 @@ class HiltGraphTest {
     lateinit var budgetFactory: () -> Budget
 
     @Inject
+    @GenerationBudget
+    lateinit var generationBudgetFactory: () -> Budget
+
+    @Inject
     lateinit var dataAvailabilityChecker: DataAvailabilityChecker
 
     @Inject
@@ -133,6 +138,10 @@ class HiltGraphTest {
         assertNotNull("AppModule должен предоставлять Clock", clock)
         assertNotNull("AppModule должен предоставлять PairGenConfig", pairGenConfig)
         assertNotNull("AppModule должен предоставлять фабрику Budget", budgetFactory)
+        assertNotNull(
+            "AppModule должен предоставлять @GenerationBudget фабрику Budget (D1)",
+            generationBudgetFactory,
+        )
         assertNotNull("StartGameUseCase должен инжектиться", startGameUseCase)
         assertNotNull("GetActorMoviesUseCase должен инжектиться", getActorMoviesUseCase)
         assertNotNull("GetMovieCastUseCase должен инжектиться", getMovieCastUseCase)

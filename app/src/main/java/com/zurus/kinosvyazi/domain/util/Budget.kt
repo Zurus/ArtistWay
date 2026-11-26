@@ -12,9 +12,17 @@ package com.zurus.kinosvyazi.domain.util
  * алгоритмы возвращают `BUDGET_EXCEEDED`/`UNKNOWN`, не бросая ошибок
  * (docs/04_algorithms.md §4.5).
  *
+ * Два профиля (docs/debugging.md D1):
+ * - [DEFAULT_*] — строгий: справочные проверки во время партии
+ *   (`CheckDeadEndUseCase`), результат advisory, геймплей не подвешивать;
+ * - [GENERATION_*] — щадящий: `generatePair`. Реальный канал работает
+ *   последовательно, ~1 запрос/с (логи в docs/debugging.md): 6 секунд
+ *   не хватало даже на один уровень фильмографии звезды, и старт
+ *   игрался в `BUDGET_EXCEEDED`.
+ *
  * @property maxRequests лимит запросов данных (рекоменд. 200–400, §3.6).
  * @property maxNodesVisited лимит посещений узлов (рекоменд. 1000–2000, §3.6).
- * @property maxWallClockMs лимит времени в мс (рекоменд. 5000–8000, §3.6).
+ * @property maxWallClockMs лимит времени в мс (профиль зависит от сценария, §5.4).
  * @property now источник времени (системные часы; управляемый в тестах).
  */
 class Budget(
@@ -52,11 +60,36 @@ class Budget(
     }
 
     companion object {
-        /** Рекомендованные значения по умолчанию (§3.6). */
+        /**
+         * Строгий профиль: дефолтные значения (§3.6) — для справочных
+         * проверок во время партии (`CheckDeadEndUseCase`).
+         */
         const val DEFAULT_MAX_REQUESTS = 300
 
         const val DEFAULT_MAX_NODES_VISITED = 1500
 
         const val DEFAULT_MAX_WALL_CLOCK_MS = 6_000L
+
+        /**
+         * Щадящий профиль: лимит запросов на весь `generatePair`
+         * (все пары суммарно). ~1 запрос/с => до 500 реальных запросов,
+         * но wall-clock сработает раньше.
+         */
+        const val GENERATION_MAX_REQUESTS = 500
+
+        /**
+         * Щадящий профиль: суммарный лимит узлов формальный (BFS
+         * считает узлы в per-pair бюджете внутри `generatePair`);
+         * большой, чтобы не ограничивал.
+         */
+        const val GENERATION_MAX_NODES_VISITED = 20_000
+
+        /**
+         * Щадящий профиль: wall-clock всего `generatePair`, мс (D1).
+         * 2 минуты — верхняя граница для медленного канала; успешное
+         * время заметно меньше: GenCache/Room делают повторные пары
+         * почти бесплатными.
+         */
+        const val GENERATION_MAX_WALL_CLOCK_MS = 120_000L
     }
 }

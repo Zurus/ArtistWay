@@ -15,7 +15,8 @@ import org.junit.Test
 
 /**
  * Тесты зашитых пар [GamePairRepositoryImpl] (MVP: `HARDCODED_PAIRS`,
- * целевой BFS на каждую пару в пределах бюджета).
+ * целевой BFS на каждую пару; D1: двухуровневый бюджет — дорогая пара
+ * пропускается, суммарное исчерпание — `BudgetExceeded`).
  */
 class GamePairRepositoryImplTest {
 
@@ -142,5 +143,31 @@ class GamePairRepositoryImplTest {
             PairGenerationError.DataError(fail),
             (result as Result.Failure).error,
         )
+    }
+
+    @Test
+    fun `expensive pair is skipped, generation survives (D1)`() = runTest {
+        // D1: у актёра 38 «хаб»-фильм на 1600 ко-актёров — BFS от него
+        // бьёт в per-pair лимит узлов (1500). В старом коде
+        // (break на BfsResult.BudgetExceeded) вся генерация умирала на
+        // первой такой паре; теперь — пробуем следующую. seed=8 =>
+        // первая пара в shuffle — (38, 39) (дорогая).
+        val graph = FakeGraph()
+            .edge(31, 101).edge(900, 101)
+            .edge(900, 202).edge(122, 202)
+        repeat(1600) {
+            graph.edge(38, 1000).edge(7000 + it, 1000)
+        }
+        val budget = Budget(maxRequests = 5000, maxNodesVisited = 100_000, maxWallClockMs = 60_000)
+
+        val result = repo(graph, budget = budget).generatePair(seed = 8L)
+
+        val pair = (result as Result.Success).value
+        assertEquals(
+            "решаемая пара (31, 122) найдена, несмотря на дорогую",
+            setOf(31, 122),
+            setOf(pair.startActor.tmdbId, pair.targetActor.tmdbId),
+        )
+        assertEquals("путь из 2 шагов", 2, pair.shortestPath.size)
     }
 }

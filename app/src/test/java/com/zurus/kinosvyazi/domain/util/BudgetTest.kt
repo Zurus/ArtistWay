@@ -50,4 +50,26 @@ class BudgetTest {
         assertEquals(1500, budget.maxNodesVisited)
         assertEquals(6000L, budget.maxWallClockMs)
     }
+
+    @Test
+    fun `generation profile is lazier than default (D1)`() {
+        assertTrue(
+            Budget.GENERATION_MAX_WALL_CLOCK_MS > Budget.DEFAULT_MAX_WALL_CLOCK_MS,
+            "generation wall-clock длиннее дефолта (медленный канал ~1 запрос/с)",
+        )
+        assertTrue(
+            Budget.GENERATION_MAX_WALL_CLOCK_MS >= 60_000L,
+            "generation wall-clock покрывает минуту загрузки",
+        )
+        assertTrue(
+            Budget.GENERATION_MAX_REQUESTS >= Budget.DEFAULT_MAX_REQUESTS,
+            "generation лимит запросов не меньше дефолта",
+        )
+        val gen = Budget(
+            maxRequests = Budget.GENERATION_MAX_REQUESTS,
+            maxNodesVisited = Budget.GENERATION_MAX_NODES_VISITED,
+            maxWallClockMs = Budget.GENERATION_MAX_WALL_CLOCK_MS,
+        )
+        assertTrue(!gen.exhausted(), "свежий generation-бюджет не исчерпан")
+    }
 }

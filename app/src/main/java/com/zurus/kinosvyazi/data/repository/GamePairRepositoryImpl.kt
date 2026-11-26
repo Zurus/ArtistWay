@@ -1,6 +1,7 @@
 package com.zurus.kinosvyazi.data.repository
 
 import com.zurus.kinosvyazi.core.common.AppError
+import com.zurus.kinosvyazi.core.common.GenerationBudget
 import com.zurus.kinosvyazi.core.common.Result
 import com.zurus.kinosvyazi.domain.model.ChainStep
 import com.zurus.kinosvyazi.domain.model.GamePair
@@ -31,9 +32,19 @@ import kotlin.random.Random
  * - путь найден и `minSteps <= distance <= maxSteps` → пара выдана,
  *   `shortestPath` взят из BFS-дерева (гарантия решаемости, §3.5);
  * - пути нет (`NotFound`) или пара тривиальна (`d = 1`) → следующая пара;
- * - бюджет исчерпан → [PairGenerationError.BudgetExceeded]
- *   (валидное состояние, UI предлагает «попробовать ещё раз»);
+ * - пара «дорогая» (per-pair бюджет исчерпан, D1) → следующая пара,
+ *   генерация не ломается;
+ * - исчерпан суммарный бюджет генерации →
+ *   [PairGenerationError.BudgetExceeded] (валидное состояние, UI
+ *   предлагает «попробовать ещё раз»);
  * - все пары перебраны → [PairGenerationError.NoValidPair].
+ *
+ * Бюджет двухуровневый (docs/debugging.md D1): [GenCache] учитывает
+ * реальные запросы в суммарный бюджет генерации (фабрика
+ * `@GenerationBudget`, профиль [Budget.GENERATION_MAX_WALL_CLOCK_MS]);
+ * каждый BFS получает собственный per-pair бюджет (wall-clock и узлы),
+ * чтобы одна дорогая пара не сжегала весь лимит. `maxRequests`/узлы
+ * суммарного бюджета остаются жёсткими верхними границами.
  *
  * Оба конца пары — известные актёры из [PAIR_ACTORS] (в отличие от
  * пулового [com.zurus.kinosvyazi.domain.util.PairGenerator], где цель —
@@ -45,24 +56,32 @@ class GamePairRepositoryImpl @Inject constructor(
     private val actorRepository: ActorRepository,
     private val movieRepository: MovieRepository,
     private val pairGenConfig: PairGenConfig,
-    private val budgetFactory: () -> Budget,
+    @GenerationBudget private val generationBudgetFactory: () -> Budget,
 ) : GamePairRepository {
 
     override suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError> {
         val effectiveSeed = seed ?: ThreadLocalRandom.current().nextLong()
-        val budget = budgetFactory()
-        val cache = GenCache(actorRepository, movieRepository, budget)
+        val genBudget = generationBudgetFactory()
+        val cache = GenCache(actorRepository, movieRepository, genBudget)
         val rng = Random(effectiveSeed)
         var budgetExceeded = false
 
         for ((startId, targetId) in HARDCODED_PAIRS.shuffled(rng)) {
-            if (budget.exhausted()) {
+            if (genBudget.exhausted()) {
                 budgetExceeded = true
                 break
             }
+            // D1: per-pair бюджет — одна дорогая пара не должна сжигать
+            // общий лимит (реальный канал ~1 запрос/с). Запросы учитывает
+            // [GenCache] в [genBudget]; здесь — wall-clock и узлы пары.
+            val pairBudget = Budget(
+                maxRequests = Int.MAX_VALUE,
+                maxNodesVisited = PAIR_MAX_NODES_VISITED,
+                maxWallClockMs = PAIR_MAX_WALL_CLOCK_MS,
+            )
             val bfs = when (
                 val outcome = Bfs.bfsShortestPath(
-                    startId, targetId, pairGenConfig.maxSteps, cache, budget,
+                    startId, targetId, pairGenConfig.maxSteps, cache, pairBudget,
                 )
             ) {
                 is Result.Failure -> when (val error = outcome.error) {
@@ -85,8 +104,9 @@ class GamePairRepositoryImpl @Inject constructor(
                 }
                 BfsResult.NotFound -> Unit
                 BfsResult.BudgetExceeded -> {
-                    budgetExceeded = true
-                    break
+                    // D1: пара дороже per-pair лимита — пробуем следующую,
+                    // генерация продолжается (раньше здесь было `break`).
+                    Unit
                 }
             }
         }
@@ -94,8 +114,8 @@ class GamePairRepositoryImpl @Inject constructor(
         return if (budgetExceeded) {
             Result.failure(
                 PairGenerationError.BudgetExceeded(
-                    "requests=${budget.requestsUsed}/${budget.maxRequests}, " +
-                        "nodes=${budget.nodesVisited}/${budget.maxNodesVisited}",
+                    "requests=${genBudget.requestsUsed}/${genBudget.maxRequests}, " +
+                        "wallClock=${genBudget.maxWallClockMs}ms",
                 ),
             )
         } else {
@@ -137,6 +157,19 @@ class GamePairRepositoryImpl @Inject constructor(
      * «top-N по popularity» из данных TMDB).
      */
     private companion object {
+        /**
+         * D1: per-pair лимит узлов (≈ дефолтный §3.6): один BFS не может
+         * замахнуться на бесконечное раскрытие.
+         */
+        private const val PAIR_MAX_NODES_VISITED = 1_500
+
+        /**
+         * D1: per-pair wall-clock, мс. На канале ~1 запрос/с это ~30
+         * реальных запросов — достаточно, чтобы дорогая пара уступила
+         * место следующим (почти бесплатным: GenCache уже тёплый).
+         */
+        private const val PAIR_MAX_WALL_CLOCK_MS = 30_000L
+
         val PAIR_ACTORS: List<Int> = listOf(
             31, // Tom Hanks
             38, // Harrison Ford
