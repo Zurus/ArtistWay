@@ -9,4 +9,5 @@ captures/
 .cxx/
 .kotlin/
 __pycache__/
+tools/.pair_bank_cache/
 debugging/
