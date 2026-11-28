@@ -2,7 +2,9 @@ package com.zurus.cinethread.feature.game
 
 import com.zurus.cinethread.core.common.Clock
 import com.zurus.cinethread.core.common.Result
+import com.zurus.cinethread.core.common.SetupDepthPrefs
 import com.zurus.cinethread.core.ui.UiState
+import com.zurus.cinethread.data.pairsource.OnlinePairSource
 import com.zurus.cinethread.domain.FakeGameSessionRepository
 import com.zurus.cinethread.domain.actor
 import com.zurus.cinethread.domain.model.GamePair
@@ -10,6 +12,7 @@ import com.zurus.cinethread.domain.repository.GamePairRepository
 import com.zurus.cinethread.domain.repository.PairGenerationError
 import com.zurus.cinethread.domain.usecase.FinishGameUseCase
 import com.zurus.cinethread.domain.usecase.StartGameUseCase
+import com.zurus.cinethread.domain.util.PairGenConfig
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -83,7 +86,10 @@ class GameSetupViewModelTest {
             seed = 7L,
         )
         val pairRepo = object : GamePairRepository {
-            override suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError> {
+            override suspend fun generatePair(
+                seed: Long?,
+                depth: Int,
+            ): Result<GamePair, PairGenerationError> {
                 calls++
                 gate.await()
                 return Result.Success(pair)
@@ -103,16 +109,97 @@ class GameSetupViewModelTest {
         assertTrue((viewModel.uiState.value as UiState.Content).value.session.sessionId.isNotBlank())
     }
 
-    private fun createViewModel(pair: GamePair?, pairError: PairGenerationError?): GameSetupViewModel {
+    private fun createViewModel(
+        pair: GamePair?,
+        pairError: PairGenerationError?,
+        depthPrefs: SetupDepthPrefs = FakeSetupDepthPrefs(),
+    ): GameSetupViewModel {
         val pairRepo = object : GamePairRepository {
-            override suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError> =
+            override suspend fun generatePair(
+                seed: Long?,
+                depth: Int,
+            ): Result<GamePair, PairGenerationError> =
                 if (pair != null) Result.Success(pair) else Result.Failure(requireNotNull(pairError))
         }
         return HomeSetupTestDoubles.viewModel(
             pairRepository = pairRepo,
             sessionRepository = FakeGameSessionRepository(),
             dispatcher = dispatcher,
+            depthPrefs = depthPrefs,
         )
+    }
+
+    // ===== D5: выбор глубины пары (docs/debugging.md) =====
+
+    @Test
+    fun `depth defaults to 2`() {
+        val viewModel = createViewModel(
+            pair = GamePair(startActor = actor(1), targetActor = actor(2), shortestPath = emptyList(), seed = 7L),
+            pairError = null,
+        )
+        assertEquals(2, viewModel.selectedDepth.value)
+    }
+
+    @Test
+    fun `depth is restored from prefs`() {
+        val prefs = FakeSetupDepthPrefs().apply { stored = 4 }
+        val viewModel = createViewModel(
+            pair = GamePair(startActor = actor(1), targetActor = actor(2), shortestPath = emptyList(), seed = 7L),
+            pairError = null,
+            depthPrefs = prefs,
+        )
+        assertEquals(4, viewModel.selectedDepth.value)
+    }
+
+    @Test
+    fun `setDepth updates state and persists`() {
+        val prefs = FakeSetupDepthPrefs()
+        val viewModel = createViewModel(
+            pair = GamePair(startActor = actor(1), targetActor = actor(2), shortestPath = emptyList(), seed = 7L),
+            pairError = null,
+            depthPrefs = prefs,
+        )
+        viewModel.setDepth(3)
+        assertEquals(3, viewModel.selectedDepth.value)
+        assertEquals("выбор обязан сохраниться", 3, prefs.stored)
+    }
+
+    @Test
+    fun `setDepth clamps out-of-range values`() {
+        val viewModel = createViewModel(
+            pair = GamePair(startActor = actor(1), targetActor = actor(2), shortestPath = emptyList(), seed = 7L),
+            pairError = null,
+        )
+        viewModel.setDepth(9)
+        assertEquals("верхняя граница — 4", 4, viewModel.selectedDepth.value)
+        viewModel.setDepth(1)
+        assertEquals("нижняя граница — 2", 2, viewModel.selectedDepth.value)
+    }
+
+    @Test
+    fun `start passes selected depth to use case`() = runTest {
+        val prefs = FakeSetupDepthPrefs()
+        var receivedDepth = -1
+        val pairRepo = object : GamePairRepository {
+            override suspend fun generatePair(
+                seed: Long?,
+                depth: Int,
+            ): Result<GamePair, PairGenerationError> {
+                receivedDepth = depth
+                return Result.Success(
+                    GamePair(startActor = actor(1), targetActor = actor(2), shortestPath = emptyList(), seed = 7L),
+                )
+            }
+        }
+        val viewModel = HomeSetupTestDoubles.viewModel(
+            pairRepository = pairRepo,
+            sessionRepository = FakeGameSessionRepository(),
+            dispatcher = dispatcher,
+            depthPrefs = prefs,
+        )
+        viewModel.setDepth(4)
+        viewModel.start()
+        assertEquals("выбранная глубина обязана дойти до use case", 4, receivedDepth)
     }
 }
 
@@ -121,13 +208,29 @@ internal object HomeSetupTestDoubles {
         pairRepository: GamePairRepository,
         sessionRepository: FakeGameSessionRepository,
         dispatcher: kotlinx.coroutines.test.TestDispatcher,
+        depthPrefs: SetupDepthPrefs = FakeSetupDepthPrefs(),
     ): GameSetupViewModel =
         GameSetupViewModel(
             StartGameUseCase(
-                pairRepository,
+                // D8: use case зависит от PairSource; для тестов VM —
+                // онлайн-адаптер над fake-репозиторием.
+                OnlinePairSource(pairRepository),
+                PairGenConfig(),
                 sessionRepository,
                 FinishGameUseCase(sessionRepository, Clock { 5000L }),
             ),
+            depthPrefs,
             dispatcher,
         )
+}
+
+/** [SetupDepthPrefs] в памяти: хранит «сырое» значение [stored]. */
+internal class FakeSetupDepthPrefs : SetupDepthPrefs {
+    var stored: Int = SetupDepthPrefs.DEFAULT_DEPTH
+
+    override var selectedDepth: Int
+        get() = stored
+        set(value) {
+            stored = value.coerceIn(SetupDepthPrefs.MIN_DEPTH, SetupDepthPrefs.MAX_DEPTH)
+        }
 }

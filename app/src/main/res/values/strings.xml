@@ -24,6 +24,7 @@
     <string name="rules_scheme">Актёр → Фильм → Актёр</string>
     <string name="rules_example">Пример: Актёр 1 → «Оскар» → Актёр 2 → «Гран-при» → Актёр 3 (цель)</string>
     <string name="rules_finish">Партия завершается, когда вы достигаете целевого актёра.</string>
+    <string name="rules_depth">Глубина пары — сколько фильмов нужно найти: 2, 3 или 4. Выбирать можно перед стартом; чем больше глубина, тем дольше подбирается пара.</string>
     <string name="rules_limit_1">Нельзя выбрать фильм, в котором нет текущего актёра.</string>
     <string name="rules_limit_2">Нельзя выбрать актёра, которого нет в выбранном фильме.</string>
     <string name="rules_limit_3">Нельзя перейти к актёру напрямую, минуя фильм.</string>
@@ -31,8 +32,12 @@
     <string name="rules_start_game">Начать игру</string>
 
     <!-- Экран генерации партии (§2.3) -->
-    <string name="setup_generating">Подбираем пару… На медленном соединении это может занять до двух минут</string>
-    <string name="setup_generating_hint">Ищем связку актёров, которую можно пройти за несколько шагов</string>
+    <string name="setup_title">Новая партия</string>
+    <string name="setup_depth_title">Глубина пары</string>
+    <string name="setup_depth_subtitle">Сколько фильмов придётся найти, чтобы дойти от стартового актёра до целевого</string>
+    <string name="setup_depth_warning">На медленном соединении подбор такой пары может занять несколько минут</string>
+    <string name="setup_start">Подобрать пару</string>
+    <string name="setup_generating_depth">Подбираем пару глубины %1$d…</string>
     <string name="setup_error_title">Не удалось создать партию</string>
     <string name="setup_retry">Повторить</string>
     <string name="setup_back">Назад</string>

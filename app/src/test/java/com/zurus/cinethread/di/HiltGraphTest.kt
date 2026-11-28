@@ -4,6 +4,7 @@ import android.app.Application
 import com.zurus.cinethread.core.common.Clock
 import com.zurus.cinethread.core.common.GenerationBudget
 import com.zurus.cinethread.core.common.IoDispatcher
+import com.zurus.cinethread.core.common.SetupDepthPrefs
 import com.zurus.cinethread.core.ui.ChainResolver
 import com.zurus.cinethread.data.network.ConnectivityObserver
 import com.zurus.cinethread.domain.repository.ActorRepository
@@ -11,6 +12,7 @@ import com.zurus.cinethread.domain.repository.DataAvailabilityChecker
 import com.zurus.cinethread.domain.repository.GamePairRepository
 import com.zurus.cinethread.domain.repository.GameSessionRepository
 import com.zurus.cinethread.domain.repository.MovieRepository
+import com.zurus.cinethread.domain.repository.PairSource
 import com.zurus.cinethread.domain.usecase.CheckDataAvailabilityUseCase
 import com.zurus.cinethread.domain.usecase.CheckDeadEndUseCase
 import com.zurus.cinethread.domain.usecase.CommitTransitionUseCase
@@ -75,10 +77,16 @@ class HiltGraphTest {
     lateinit var gamePairRepository: GamePairRepository
 
     @Inject
+    lateinit var pairSource: PairSource
+
+    @Inject
     lateinit var clock: Clock
 
     @Inject
     lateinit var pairGenConfig: PairGenConfig
+
+    @Inject
+    lateinit var setupDepthPrefs: SetupDepthPrefs
 
     @Inject
     lateinit var budgetFactory: () -> Budget
@@ -137,11 +145,13 @@ class HiltGraphTest {
         assertNotNull("RepositoryModule должен биндить GamePairRepository", gamePairRepository)
         assertNotNull("AppModule должен предоставлять Clock", clock)
         assertNotNull("AppModule должен предоставлять PairGenConfig", pairGenConfig)
+        assertNotNull("AppModule должен предоставлять SetupDepthPrefs (D5)", setupDepthPrefs)
         assertNotNull("AppModule должен предоставлять фабрику Budget", budgetFactory)
         assertNotNull(
             "AppModule должен предоставлять @GenerationBudget фабрику Budget (D1)",
             generationBudgetFactory,
         )
+        assertNotNull("PairSourceModule должен предоставлять PairSource (D8)", pairSource)
         assertNotNull("StartGameUseCase должен инжектиться", startGameUseCase)
         assertNotNull("GetActorMoviesUseCase должен инжектиться", getActorMoviesUseCase)
         assertNotNull("GetMovieCastUseCase должен инжектиться", getMovieCastUseCase)

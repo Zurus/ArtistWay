@@ -3,7 +3,7 @@ package com.zurus.cinethread.domain.usecase
 import com.zurus.cinethread.core.common.AppError
 import com.zurus.cinethread.core.common.Clock
 import com.zurus.cinethread.core.common.Result
-import com.zurus.cinethread.domain.FakeGamePairRepository
+import com.zurus.cinethread.domain.FakePairSource
 import com.zurus.cinethread.domain.FakeGameSessionRepository
 import com.zurus.cinethread.domain.actor
 import com.zurus.cinethread.domain.model.ChainStep
@@ -12,6 +12,7 @@ import com.zurus.cinethread.domain.model.GameResultReason
 import com.zurus.cinethread.domain.model.GameSessionStatus
 import com.zurus.cinethread.domain.repository.PairGenerationError
 import com.zurus.cinethread.domain.sessionWith
+import com.zurus.cinethread.domain.util.PairGenConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -20,6 +21,11 @@ import kotlinx.coroutines.runBlocking
 
 /**
  * StartGameUseCase: атомарный запуск партии (Этап 3).
+ *
+ * D8 (docs/debugging.md): use case не зависит от конкретного источника
+ * пары — тесты прогоняют его с [FakePairSource] (роль онлайн/банка/auto
+ * определяет DI по `BuildConfig.PAIR_SOURCE`; поведение источников —
+ * тесты `data/pairsource`).
  */
 class StartGameUseCaseTest {
 
@@ -34,19 +40,20 @@ class StartGameUseCaseTest {
     )
 
     private fun useCase(
-        pairRepository: FakeGamePairRepository,
+        pairSource: FakePairSource,
         sessionRepository: FakeGameSessionRepository = FakeGameSessionRepository(),
     ) = StartGameUseCase(
-        pairRepository,
+        pairSource,
+        PairGenConfig(),
         sessionRepository,
         FinishGameUseCase(sessionRepository, Clock { 5000L }),
     )
 
     @Test
     fun `success starts session with guaranteed path and seed`() = runBlocking {
-        val pairRepository = FakeGamePairRepository(Result.Success(pair))
+        val pairSource = FakePairSource(Result.Success(pair))
         val sessionRepository = FakeGameSessionRepository()
-        val useCase = useCase(pairRepository, sessionRepository)
+        val useCase = useCase(pairSource, sessionRepository)
         val result = useCase(seed = 99L)
         val session = result.getOrNull()
         assertTrue(session != null, "ожидалась партия, получен сбой: $result")
@@ -55,21 +62,47 @@ class StartGameUseCaseTest {
         assertEquals(pair.shortestPath, session.shortestPath)
         assertEquals(99L, session.generationSeed)
         assertEquals(1, sessionRepository.startedPairs.size)
-        assertEquals(99L, pairRepository.lastSeed, "seed обязан передаваться в репозиторий")
+        assertEquals(99L, pairSource.lastSeed, "seed обязан передаваться в источник")
     }
 
     @Test
     fun `null seed is passed through`() = runBlocking {
-        val pairRepository = FakeGamePairRepository(Result.Success(pair))
-        val useCase = useCase(pairRepository)
+        val pairSource = FakePairSource(Result.Success(pair))
+        val useCase = useCase(pairSource)
         useCase()
-        assertEquals(null, pairRepository.lastSeed)
+        assertEquals(null, pairSource.lastSeed)
+    }
+
+    @Test
+    fun `selected depth is passed to pair source as exact-depth config (D5, D8)`() = runBlocking {
+        val pairSource = FakePairSource(Result.Success(pair))
+        val useCase = useCase(pairSource)
+        useCase(seed = 99L, depth = 3)
+        assertEquals(3, pairSource.lastDepth, "глубина обязана передаваться в источник")
+    }
+
+    @Test
+    fun `default depth is 2 (D5)`() = runBlocking {
+        val pairSource = FakePairSource(Result.Success(pair))
+        val useCase = useCase(pairSource)
+        useCase()
+        assertEquals(2, pairSource.lastDepth)
+    }
+
+    @Test
+    fun `unsupported depth is rejected before the source (D5)`() = runBlocking {
+        val pairSource = FakePairSource(Result.Success(pair))
+        val useCase = useCase(pairSource)
+        val result = useCase(depth = 7)
+        assertTrue(result is Result.Failure)
+        assertTrue((result as Result.Failure).error is PairGenerationError.DataError)
+        assertEquals(0, pairSource.pickCount, "источник не должен вызываться")
     }
 
     @Test
     fun `budget exceeded is surfaced`() = runBlocking {
         val useCase = useCase(
-            FakeGamePairRepository(
+            FakePairSource(
                 Result.failure(PairGenerationError.BudgetExceeded("requests=300/300")),
             ),
         )
@@ -80,7 +113,7 @@ class StartGameUseCaseTest {
 
     @Test
     fun `no valid pair is surfaced`() = runBlocking {
-        val useCase = useCase(FakeGamePairRepository(Result.failure(PairGenerationError.NoValidPair)))
+        val useCase = useCase(FakePairSource(Result.failure(PairGenerationError.NoValidPair)))
         val result = useCase()
         assertTrue(result is Result.Failure)
         assertEquals(PairGenerationError.NoValidPair, (result as Result.Failure).error)
@@ -89,7 +122,7 @@ class StartGameUseCaseTest {
     @Test
     fun `data error is surfaced`() = runBlocking {
         val useCase = useCase(
-            FakeGamePairRepository(Result.failure(PairGenerationError.DataError(AppError.Network))),
+            FakePairSource(Result.failure(PairGenerationError.DataError(AppError.Network))),
         )
         val result = useCase()
         assertTrue(result is Result.Failure)
@@ -99,7 +132,7 @@ class StartGameUseCaseTest {
     @Test
     fun `session start failure maps to data error`() = runBlocking {
         val sessionRepository = FakeGameSessionRepository().apply { startFail = AppError.Server }
-        val useCase = useCase(FakeGamePairRepository(Result.Success(pair)), sessionRepository)
+        val useCase = useCase(FakePairSource(Result.Success(pair)), sessionRepository)
         val result = useCase()
         assertTrue(result is Result.Failure)
         assertEquals(PairGenerationError.DataError(AppError.Server), (result as Result.Failure).error)
@@ -112,7 +145,7 @@ class StartGameUseCaseTest {
         sessionRepository.sessions[previous.sessionId] = previous
         sessionRepository.activeSession = previous
 
-        val useCase = useCase(FakeGamePairRepository(Result.Success(pair)), sessionRepository)
+        val useCase = useCase(FakePairSource(Result.Success(pair)), sessionRepository)
         val session = useCase().getOrNull()
 
         assertTrue(session != null, "ожидалась новая партия")
@@ -130,7 +163,7 @@ class StartGameUseCaseTest {
         sessionRepository.activeSession = previous
 
         val useCase = useCase(
-            FakeGamePairRepository(Result.failure(PairGenerationError.NoValidPair)),
+            FakePairSource(Result.failure(PairGenerationError.NoValidPair)),
             sessionRepository,
         )
         useCase()

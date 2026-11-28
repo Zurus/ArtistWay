@@ -39,6 +39,18 @@ import kotlin.random.Random
  *   предлагает «попробовать ещё раз»);
  * - все пары перебраны → [PairGenerationError.NoValidPair].
  *
+ * D5 (docs/debugging.md): глубина пары выбирается игроком (2..4),
+ * `generatePair(seed, depth)` строит конфиг `minSteps = maxSteps = depth`.
+ * Глубина 2 — целевой BFS заменён дешёвым поиском [DepthTwoPairSearch]
+ * (пересечение ко-актёрных множеств: взрыв среднего слоя исключён);
+ * глубины 3–4 — целевой BFS без изменений (maxSteps = depth).
+ *
+ * D8 (docs/debugging.md): **банк пар вынесен из репозитория** в
+ * стратегии [PairSource] (`data/pairsource`): [com.zurus.cinethread.data.pairsource.BankPairSource]
+ * (строго, без фолбэка) и [com.zurus.cinethread.data.pairsource.AutoPairSource]
+ * (банк → онлайн, 0 запросов, когда глубина покрыта). Репозиторий —
+ * чистый онлайн-поиск (режим `pairSource = online` ≡ этому классу).
+ *
  * Бюджет двухуровневый (docs/debugging.md D1): [GenCache] учитывает
  * реальные запросы в суммарный бюджет генерации (фабрика
  * `@GenerationBudget`, профиль [Budget.GENERATION_MAX_WALL_CLOCK_MS]);
@@ -59,7 +71,19 @@ class GamePairRepositoryImpl @Inject constructor(
     @GenerationBudget private val generationBudgetFactory: () -> Budget,
 ) : GamePairRepository {
 
-    override suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError> {
+    override suspend fun generatePair(
+        seed: Long?,
+        depth: Int,
+    ): Result<GamePair, PairGenerationError> {
+        if (depth !in SUPPORTED_DEPTHS) {
+            return Result.failure(
+                PairGenerationError.DataError(
+                    AppError.DataInvalid("Глубина пары $depth: поддерживается ${SUPPORTED_DEPTHS}"),
+                ),
+            )
+        }
+        // D5: пара точной глубины — minSteps = maxSteps = depth.
+        val config = pairGenConfig.forDepth(depth)
         val effectiveSeed = seed ?: ThreadLocalRandom.current().nextLong()
         val genBudget = generationBudgetFactory()
         val cache = GenCache(actorRepository, movieRepository, genBudget)
@@ -79,35 +103,21 @@ class GamePairRepositoryImpl @Inject constructor(
                 maxNodesVisited = PAIR_MAX_NODES_VISITED,
                 maxWallClockMs = PAIR_MAX_WALL_CLOCK_MS,
             )
-            val bfs = when (
-                val outcome = Bfs.bfsShortestPath(
-                    startId, targetId, pairGenConfig.maxSteps, cache, pairBudget,
-                )
-            ) {
-                is Result.Failure -> when (val error = outcome.error) {
-                    is AppError.BudgetExceeded -> {
-                        budgetExceeded = true
-                        break
-                    }
-                    else -> return Result.failure(PairGenerationError.DataError(error))
-                }
-                is Result.Success -> outcome.value
+            // D5: глубина 2 — пересечение ко-актёрных множеств (без BFS и
+            // взрыва среднего слоя), глубины 3–4 — целевой BFS.
+            val attempt = if (depth == 2) {
+                depthTwoAttempt(startId, targetId, cache, pairBudget, effectiveSeed)
+            } else {
+                bfsAttempt(startId, targetId, config, cache, pairBudget, effectiveSeed)
             }
-            when (bfs) {
-                is BfsResult.Found -> {
-                    // Пара «одна общая картина» (d = 1) — тривиальная игра,
-                    // отсекается minSteps (PairGenConfig.allowTrivial).
-                    if (bfs.distance < pairGenConfig.minSteps) continue
-                    val path = Bfs.reconstructChain(startId, targetId, bfs.parents)
-                    if (path.isEmpty()) continue
-                    return toDomain(startId, targetId, path, effectiveSeed)
+            when (attempt) {
+                is PairAttempt.Ready -> return Result.Success(attempt.pair)
+                PairAttempt.Next -> continue
+                PairAttempt.Stop -> {
+                    budgetExceeded = true
+                    break
                 }
-                BfsResult.NotFound -> Unit
-                BfsResult.BudgetExceeded -> {
-                    // D1: пара дороже per-pair лимита — пробуем следующую,
-                    // генерация продолжается (раньше здесь было `break`).
-                    Unit
-                }
+                is PairAttempt.Fail -> return Result.failure(attempt.error)
             }
         }
 
@@ -122,6 +132,94 @@ class GamePairRepositoryImpl @Inject constructor(
             Result.failure(PairGenerationError.NoValidPair)
         }
     }
+
+    /**
+     * Результат одной попытки в цикле пар (D1/D5): пара найдена /
+     * следующая пара (нет пути, тривиальная, дороже per-pair лимита) /
+     * стоп генерации (суммарный бюджет) / сбой данных.
+     */
+    private sealed interface PairAttempt {
+        data class Ready(val pair: GamePair) : PairAttempt
+        data object Next : PairAttempt
+        data object Stop : PairAttempt
+        data class Fail(val error: PairGenerationError) : PairAttempt
+    }
+
+    private suspend fun depthTwoAttempt(
+        startId: Int,
+        targetId: Int,
+        cache: GenCache,
+        pairBudget: Budget,
+        seed: Long,
+    ): PairAttempt = when (val outcome = DepthTwoPairSearch.find(startId, targetId, cache, pairBudget)) {
+        is DepthTwoResult.Found ->
+            when (val domain = toDomain(startId, targetId, depthTwoPath(startId, targetId, outcome), seed)) {
+                is Result.Success -> PairAttempt.Ready(domain.value)
+                is Result.Failure -> PairAttempt.Fail(domain.error)
+            }
+        DepthTwoResult.NoCommon,
+        DepthTwoResult.PairBudgetExceeded -> PairAttempt.Next
+        DepthTwoResult.OuterBudgetExceeded -> PairAttempt.Stop
+        is DepthTwoResult.DataError -> PairAttempt.Fail(PairGenerationError.DataError(outcome.error))
+    }
+
+    /**
+     * Глубины 3–4 (D5): существующий целевой BFS без изменений
+     * (`maxSteps = depth` из конфига точной глубины).
+     */
+    private suspend fun bfsAttempt(
+        startId: Int,
+        targetId: Int,
+        config: PairGenConfig,
+        cache: GenCache,
+        pairBudget: Budget,
+        seed: Long,
+    ): PairAttempt = when (
+        val outcome = Bfs.bfsShortestPath(startId, targetId, config.maxSteps, cache, pairBudget)
+    ) {
+        is Result.Failure -> when (val error = outcome.error) {
+            // Суммарный бюджет исчерпан — стоп; прочая ошибка — сбой данных.
+            is AppError.BudgetExceeded -> PairAttempt.Stop
+            else -> PairAttempt.Fail(PairGenerationError.DataError(error))
+        }
+        is Result.Success -> when (val bfs = outcome.value) {
+            is BfsResult.Found -> {
+                // Пара «одна общая картина» (d = 1) и короче запрошенной
+                // глубины — тривиальная игра, отсекается minSteps
+                // (PairGenConfig.allowTrivial).
+                if (bfs.distance < config.minSteps) {
+                    PairAttempt.Next
+                } else {
+                    val path = Bfs.reconstructChain(startId, targetId, bfs.parents)
+                    if (path.isEmpty()) {
+                        PairAttempt.Next
+                    } else {
+                        when (val domain = toDomain(startId, targetId, path, seed)) {
+                            is Result.Success -> PairAttempt.Ready(domain.value)
+                            is Result.Failure -> PairAttempt.Fail(domain.error)
+                        }
+                    }
+                }
+            }
+            BfsResult.NotFound -> PairAttempt.Next
+            // D1: пара дороже per-pair лимита — пробуем следующую,
+            // генерация продолжается (раньше здесь было `break`).
+            BfsResult.BudgetExceeded -> PairAttempt.Next
+        }
+    }
+
+    /**
+     * D5: цепочка глубины 2 из пересечения ко-актёров: A→fA→X→fB→B —
+     * два хода игрока, два [ChainStep].
+     */
+    private fun depthTwoPath(
+        startId: Int,
+        targetId: Int,
+        found: DepthTwoResult.Found,
+    ): List<ChainStep> = listOf(
+        ChainStep(stepIndex = 1, fromActorId = startId, movieId = found.startFilmId, toActorId = found.coActorId),
+        ChainStep(stepIndex = 2, fromActorId = found.coActorId, movieId = found.targetFilmId, toActorId = targetId),
+    )
 
     private suspend fun toDomain(
         startId: Int,
@@ -160,6 +258,9 @@ class GamePairRepositoryImpl @Inject constructor(
      * меняется. P4: заменить список на «top-N по popularity» из TMDB.
      */
     internal companion object {
+        /** D5: поддерживаемые глубины пары (выбор на стартовом экране). */
+        private val SUPPORTED_DEPTHS = 2..4
+
         /**
          * D1: per-pair лимит узлов (≈ дефолтный §3.6): один BFS не может
          * замахнуться на бесконечное раскрытие.

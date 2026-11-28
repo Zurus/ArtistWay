@@ -35,10 +35,15 @@ interface GamePairRepository {
      * Генерирует пару с гарантированным решением.
      *
      * @param seed сид воспроизводимой генерации или `null` — случайный.
+     * @param depth глубина пары в ходах игрока, 2..4 (D5): `2` — дешёвый
+     * онлайн-поиск через пересечение составов, `3..4` — целевой BFS.
      * @return пара с гарантированной кратчайшей цепочкой
      * либо [PairGenerationError].
      */
-    suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError>
+    suspend fun generatePair(
+        seed: Long?,
+        depth: Int = 2,
+    ): Result<GamePair, PairGenerationError>
 }
 
 /**

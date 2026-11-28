@@ -92,7 +92,10 @@ object UiTestDoubles {
 
     /** Делегирующий [GamePairRepository]: предопределённая пара (детерминизм UI-тестов). */
     class PairRepo : GamePairRepository {
-        override suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError> {
+        override suspend fun generatePair(
+            seed: Long?,
+            depth: Int,
+        ): Result<GamePair, PairGenerationError> {
             val state = current
             val failure = state.pairError
             val pair = state.pair

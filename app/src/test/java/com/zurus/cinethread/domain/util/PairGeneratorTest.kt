@@ -133,4 +133,13 @@ class PairGeneratorTest {
             "разные seed — разные пары, а получили $targets",
         )
     }
+
+    @Test
+    fun `forDepth sets exact depth bounds (D5)`() {
+        val config = PairGenConfig().forDepth(3)
+        assertEquals(3, config.minSteps)
+        assertEquals(3, config.maxSteps)
+        // Остальные параметры не трогаются.
+        assertEquals(PairGenConfig().startPoolSize, config.startPoolSize)
+    }
 }

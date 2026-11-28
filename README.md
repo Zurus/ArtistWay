@@ -92,6 +92,20 @@ OkHttp 4.12.0, kotlinx-serialization 1.7.3, detekt 1.23.7.
 > двойники репозиториев), но приложение не сможет загрузить реальные
 > данные TMDB.
 
+### Отладочные параметры `local.properties`
+
+| Свойство | Дефолт | Назначение |
+|---|---|---|
+| `TMDB_API_KEY` | — | ключ TMDB (выше); попадает только в локальную сборку |
+| `tmdb.logging` | `false` | `true` — писать каждый запрос/ответ TMDB в `tmdb_requests.log` на устройстве (D6): время, метод, URL с замаскированным ключом (`api_key=***`), HTTP-код, длительность, размеры, body (обрезка 200 КБ); ротация 10 МБ |
+| `pairSource` | `auto` | источник пары: `auto` \| `online` \| `bank` \| `remote` (D8; разобрано в «Способ подбора пар» ниже) |
+
+Флаг/значение действуют после пересборки. Файл запросов забрать так:
+
+```bash
+adb pull /sdcard/Android/data/com.zurus.cinethread/files/tmdb_requests.log
+```
+
 ---
 
 ## Способ подбора пар
@@ -100,7 +114,7 @@ OkHttp 4.12.0, kotlinx-serialization 1.7.3, detekt 1.23.7.
 цепочкой. «Откуда взять пару» — сменный источник (стратегия);
 подробно — `docs/pair_sources.md`.
 
-| `PAIR_SOURCE` | Поведение |
+| `pairSource` | Поведение |
 |---|---|
 | `auto` (по умолчанию) | если глубина покрыта банком — из предгенерированного банка (мгновенно, 0 запросов), иначе — онлайн-поиск (BFS) |
 | `online` | только онлайн-поиск (BFS по TMDB) |
@@ -110,7 +124,7 @@ OkHttp 4.12.0, kotlinx-serialization 1.7.3, detekt 1.23.7.
 Переключение — в `local.properties` (рядом с ключом TMDB):
 
 ```properties
-PAIR_SOURCE=auto
+pairSource=auto
 ```
 
 Значение читается на время сборки в `BuildConfig.PAIR_SOURCE` — после
@@ -118,9 +132,11 @@ PAIR_SOURCE=auto
 `auto` (предупреждение в логе). Переключателя в UI нет — это
 настройка разработчика.
 
-> Текущее состояние: банк и флаг появятся после цикла D4–D8
-> (`docs/debugging.md`); до того все значения ведут себя как
-> `online` (онлайн-BFS).
+> Текущее состояние: банк реализован (D7/D8), но ассет
+> `app/src/main/assets/pairs_bank_v1.json` появляется после полного
+> запуска скрипта D4 (`tools/generate_pair_bank.py`, нужен VPN + ключ).
+> Без ассета `auto` и `bank` деградируют gracefully: `auto` — в онлайн
+> (без ошибки), `bank` — «Подходящей пары не найдено».
 
 ---
 
@@ -137,7 +153,7 @@ Gradle не нужен в системе — используется обёрт
 ## Тесты и анализ
 
 ```bash
-./gradlew test        # 171 тест: domain, data, ViewModel, Compose UI (Robolectric)
+./gradlew test        # unit-тесты: domain, data, ViewModel, Compose UI (Robolectric)
 ./gradlew detekt      # статический анализ (конфиг detekt.yml)
 ./gradlew lint        # Android Lint
 ```

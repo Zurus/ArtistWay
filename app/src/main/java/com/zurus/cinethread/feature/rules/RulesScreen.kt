@@ -78,6 +78,7 @@ fun RulesScreen(navController: NavHostController) {
             }
             RuleCard(stringResource(R.string.rules_example))
             RuleCard(stringResource(R.string.rules_finish))
+            RuleCard(stringResource(R.string.rules_depth))
             RuleCard(stringResource(R.string.rules_limit_1))
             RuleCard(stringResource(R.string.rules_limit_2))
             RuleCard(stringResource(R.string.rules_limit_3))

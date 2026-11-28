@@ -9,10 +9,13 @@ import com.zurus.cinethread.data.remote.api.TmdbMovieApi
 import com.zurus.cinethread.data.remote.api.TmdbPersonApi
 import com.zurus.cinethread.data.remote.interceptor.ApiKeyInterceptor
 import com.zurus.cinethread.data.remote.interceptor.RateLimitInterceptor
+import com.zurus.cinethread.data.remote.interceptor.TmdbRequestLogInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
@@ -33,7 +36,9 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(
+        @ApplicationContext context: android.content.Context,
+    ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .connectTimeout(NetworkConfig.CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(NetworkConfig.READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -44,6 +49,17 @@ object NetworkModule {
             val logging = HttpLoggingInterceptor { message -> Timber.tag("TMDB").d(message) }
                 .setLevel(HttpLoggingInterceptor.Level.BASIC)
             builder.addInterceptor(logging)
+        }
+        // D6 (docs/debugging.md): файловый лог запросов TMDB — только при
+        // tmdb.logging=true в local.properties (иначе нулевой overhead).
+        // Забрать: adb pull /sdcard/Android/data/com.zurus.cinethread/files/tmdb_requests.log
+        if (BuildConfig.TMDB_LOGGING) {
+            builder.addInterceptor(
+                TmdbRequestLogInterceptor(
+                    enabled = true,
+                    file = File(context.filesDir, TMDB_LOG_FILE_NAME),
+                ),
+            )
         }
         return builder.build()
     }
@@ -83,4 +99,7 @@ object NetworkModule {
         TmdbConfigurationProviderImpl(api)
 
     private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+
+    /** D6: имя файла лога запросов TMDB в `<filesDir>`. */
+    private const val TMDB_LOG_FILE_NAME = "tmdb_requests.log"
 }

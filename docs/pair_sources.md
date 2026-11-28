@@ -7,11 +7,12 @@
 
 «Откуда взять пару» — сменная стратегия (паттерн Strategy,
 `docs/debugging.md` D8): интерфейс `PairSource` в домене, реализации
-в data-слое, выбор — одна строка в `local.properties`
-(`PAIR_SOURCE`). Игрок и остальной игровой поток этого не видят.
+в data-слое (`data/pairsource/`), выбор — одна строка в
+`local.properties` (`pairSource` → `BuildConfig.PAIR_SOURCE`). Игрок
+и остальной игровой поток этого не видят.
 
 Этот документ описывает четыре источника пар подробно и независимо
-от кода; реализации — по мере выполнения D5–D8.
+от кода; все четыре реализованы (D5–D8, `docs/debugging.md`).
 
 ## Общий контракт (что отдаёт любой источник)
 
@@ -187,5 +188,9 @@ D8: не обходить `PairSource` — либо обернуть в стра
 (раздел «Способ подбора пар»):
 
 ```properties
-PAIR_SOURCE=auto    # auto | online | bank | remote
+pairSource=auto    # auto | online | bank | remote
 ```
+
+Неизвестное значение трактуется как `auto` (предупреждение в логе).
+Заменяет собой D7-флаг `pairBank.enabled` (`auto` ≡ `true`,
+`online` ≡ `false`).

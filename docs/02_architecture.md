@@ -47,9 +47,11 @@ data
 
 Содержит:
 
-- `remote`: TMDB API, Retrofit-сервисы, DTO, обработка ошибок и `429 Too Many Requests`.
+- `remote`: TMDB API, Retrofit-сервисы, DTO, обработка ошибок и `429 Too Many Requests` (включая `TmdbRequestLogInterceptor` — файловый лог запросов, D6).
 - `local`: Room database, DAO, entity, миграции.
 - `repository`: реализации domain-интерфейсов.
+- `pairsource`: реализации стратегии [PairSource] — источники пары для старта (D8: онлайн, банк, remote-stub, auto).
+- `bank`: загрузчик и модель оффлайн-банка пар `pairs_bank_v1.json` (D4/D7).
 - `mapper`: преобразование DTO ↔ domain-модели и entity ↔ domain-модели.
 - `network`: таймауты, retry, rate limiting, классификация сетевых ошибок.
 - `cache`: политики TTL, инвалидации и очистки кэша.
@@ -86,7 +88,8 @@ app/
 │   ├── AppModule
 │   ├── NetworkModule
 │   ├── DatabaseModule
-│   └── RepositoryModule
+│   ├── RepositoryModule
+│   └── PairSourceModule
 ├── ui/
 │   ├── navigation/
 │   ├── theme/
@@ -126,7 +129,8 @@ domain/
 │   ├── ActorRepository
 │   ├── MovieRepository
 │   ├── GamePairRepository
-│   └── GameSessionRepository
+│   ├── GameSessionRepository
+│   └── PairSource
 ├── usecase/
 │   ├── StartGameUseCase
 │   ├── GetActorMoviesUseCase
@@ -148,6 +152,8 @@ data/
 │   │   └── TmdbConfigurationApi
 │   ├── dto/
 │   ├── interceptor/
+│   │   ├── ApiKeyInterceptor
+│   │   └── TmdbRequestLogInterceptor
 │   └── TmdbErrorMapper
 ├── network/
 │   ├── NetworkConfig
@@ -168,6 +174,14 @@ data/
 │   ├── MovieRepositoryImpl
 │   ├── GamePairRepositoryImpl
 │   └── GameSessionRepositoryImpl
+├── pairsource/
+│   ├── OnlinePairSource
+│   ├── BankPairSource
+│   ├── RemotePairSource
+│   └── AutoPairSource
+├── bank/
+│   ├── PairBank
+│   └── PairBankLoader
 ├── mapper/
 └── cache/
     └── CachePolicy
@@ -230,10 +244,11 @@ Hilt выбран, потому что проект предполагает And
 
 | Модуль | Предоставляет |
 |---|---|
-| `NetworkModule` | Retrofit, OkHttp, TMDB API, интерцепторы |
+| `NetworkModule` | Retrofit, OkHttp, TMDB API, интерцепторы (лог запросов — только при `tmdb.logging`) |
 | `DatabaseModule` | Room database, DAO |
 | `RepositoryModule` | Реализации domain-репозиториев |
-| `AppModule` | Диспетчеры, настройки кэша, генератор пар, UseCase (биндинги добавляются на этапе 3 roadmap) |
+| `AppModule` | Диспетчеры, часы, `PairGenConfig`, фабрики `Budget`, `PairBankLoader`, UseCase |
+| `PairSourceModule` | Стратегия `PairSource` по `BuildConfig.PAIR_SOURCE` (D8) |
 
 ## 6. Офлайн-стратегия
 
@@ -321,3 +336,30 @@ UI-действие
 | Нет других актёров в фильме | Domain | Состояние «нет других актёров», возврат к выбору фильма |
 | Повтор актёра или фильма | Domain | Запрет выбора в базовой версии |
 | Закрытие приложения | Data | Активная партия восстанавливается из Room |
+
+## 9. Выбор пары: стратегии (PairSource)
+
+«Откуда взять пару» для новой партии вынесено в стратегию (D8,
+`docs/debugging.md`): код выше data-слоя знает только доменное
+интерфейс [PairSource], конкретный источник выбирается на время сборки.
+
+```kotlin
+interface PairSource {
+    suspend fun pick(config: PairGenConfig, seed: Long?): Result<GamePair, PairGenerationError>
+}
+```
+
+| `pairSource` (local.properties) | Стратегия | Поведение |
+|---|---|---|
+| `auto` (по умолчанию) | `AutoPairSource` | глубина покрыта банком → банк (0 запросов), иначе — онлайн |
+| `online` | `OnlinePairSource` | адаптер над `GamePairRepositoryImpl` (бюджеты D1, d=2-поиск D5) — текущее поведение |
+| `bank` | `BankPairSource` | только банк; глубина не покрыта → `NoValidPair` (без fallback) |
+| `remote` | `RemotePairSource` | заглушка P3: понятный `DataError`, без краша |
+
+- Выбор — в `di/PairSourceModule` (`when` по `BuildConfig.PAIR_SOURCE`;
+  неизвестное значение → `auto` + `Log.w`).
+- `StartGameUseCase` принимает `PairGenConfig.forDepth(depth)` + seed и
+  не знает источник; глубина 2..4 валидируется в use case.
+- Без дублирования: BFS, бюджеты, загрузчик банка — только оборачиваются.
+- `PairGenerator` (`domain/util`, пуловой BFS) — не часть старта,
+  основа P4 (docs/04_algorithms.md §5.4).

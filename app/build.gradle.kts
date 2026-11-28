@@ -11,16 +11,28 @@ plugins {
     jacoco
 }
 
-// Ключ TMDB читается из local.properties (файл в .gitignore) и не коммитится.
+// Ключ TMDB и флаг файлового логирования (D6) читаются из local.properties
+// (файл в .gitignore) и не коммитятся.
 val localPropertiesFile = rootProject.file("local.properties")
-val tmdbApiKey: String =
+val localProperties: Properties =
     if (localPropertiesFile.exists()) {
         val props = Properties()
         localPropertiesFile.inputStream().use { props.load(it) }
-        props.getProperty("TMDB_API_KEY", "")
+        props
     } else {
-        ""
+        Properties()
     }
+val tmdbApiKey: String = localProperties.getProperty("TMDB_API_KEY", "")
+
+// D6 (docs/debugging.md): tmdb.logging=true — писать каждый запрос/ответ
+// TMDB в файл на устройстве (по умолчанию выкл).
+val tmdbLogging: Boolean = localProperties.getProperty("tmdb.logging", "false").toBoolean()
+
+// D8 (docs/debugging.md): pairSource — источник пары (стратегия):
+// auto | online | bank | remote (default auto). Банк (assets/pairs_bank_v1.json)
+// используется в режимах auto и bank; без ассета/битым файлом авто-режим
+// просто идёт в онлайн (без ошибки). Заменяет D7-флаг pairBank.enabled.
+val pairSource: String = localProperties.getProperty("pairSource", "auto").trim().ifEmpty { "auto" }
 
 android {
     namespace = "com.zurus.cinethread"
@@ -36,6 +48,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
+        // D6: файловый лог запросов/ответов TMDB (default false).
+        buildConfigField("boolean", "TMDB_LOGGING", "$tmdbLogging")
+        // D8: источник пары (auto|online|bank|remote), дефолт auto.
+        buildConfigField("String", "PAIR_SOURCE", "\"$pairSource\"")
     }
 
     buildTypes {
@@ -67,6 +83,9 @@ android {
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
+            // D7: android.util.Log в unit-тестах (PairBankLoader)
+            // возвращает дефолтные значения, а не бросает "not mocked".
+            isReturnDefaultValues = true
         }
     }
 }

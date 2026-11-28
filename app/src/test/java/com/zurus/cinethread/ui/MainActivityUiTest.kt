@@ -73,8 +73,9 @@ class MainActivityUiTest {
 
     @Test
     fun `happy path - win screen after two transitions`() {
-        // Экран запуска → «Начать игру» → генерация → экран партии.
+        // Экран запуска → «Начать игру» → выбор глубины (D5) → генерация → экран партии.
         click("Начать игру")
+        click("Подобрать пару")
         expectVisible("Актёр 3")
         expectVisible("Шагов: 0")
 
@@ -100,6 +101,7 @@ class MainActivityUiTest {
     @Test
     fun `cancel transition - chain unchanged`() {
         click("Начать игру")
+        click("Подобрать пару")
         click("Выбрать фильм")
         click("Фильм 101")
         click("Актёр 2")
@@ -123,6 +125,7 @@ class MainActivityUiTest {
         )
 
         click("Начать игру")
+        click("Подобрать пару")
         click("Выбрать фильм")
         click("Фильм 101")
         click("Актёр 2")
@@ -136,6 +139,7 @@ class MainActivityUiTest {
     @Test
     fun `movie picker - network error shows retry and keeps failing`() {
         click("Начать игру")
+        click("Подобрать пару")
         expectVisible("Выбрать фильм")
 
         // docs/01_concept.md §6.2: сбой сети — понятный текст + «Повторить».

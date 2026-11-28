@@ -193,11 +193,12 @@ rate-limit), TMDB `person/{id}/movie_credits`, `movie/{id}/credits`
 (папка gitignored — файл для передачи; в D7 копия коммитится в
 `assets/`).
 
-> Статус: 🔄 в работе. Скрипт написан (код передан в диалоге; файл
-> `tools/generate_pair_bank.py` ещё не сохранён и не коммичен). Осталось
-> у пользователя: `--selftest` (офлайн, без VPN и ключа) → `--limit 10`
-> (смоук) → полный прогон (VPN + ключ) → `debugging/pairs_bank_v1.json`
-> (вход в D7).
+> Статус: 🔄 в работе. Скрипт сохранён и коммичен
+> (`tools/generate_pair_bank.py`, коммит `d169c7d`); `--selftest`
+> выполнен: SELFTEST OK (73 проверки, пул = 117). Осталось у
+> пользователя (нужен VPN + TMDB-ключ): `--limit 10` (смоук) → полный
+> прогон → `debugging/pairs_bank_v1.json` → проверка, что в файле нет
+> ключей → копия в `app/src/main/assets/pairs_bank_v1.json` (вход в D7/D8).
 
 ---
 
@@ -244,6 +245,13 @@ rate-limit), TMDB `person/{id}/movie_credits`, `movie/{id}/credits`
 минут на холодном старте (каждый повтор быстрее — Room теплеет), вместо
 15+ повторов; глубины 3–4 — как раньше, с пометкой.
 
+> Статус: ✅ код завершён (unit-тесты, detekt, lint, release — зелёные).
+> d=2 — `DepthTwoPairSearch` (пересечение ко-актёрных множеств,
+> fA≠fB — d=1-пара не маскируется под d=2); d=3–4 — целевой BFS
+> (`maxSteps = depth`). Стартовый экран: выбор 2/3/4 (SharedPreferences,
+> default 2), пометка «несколько минут» для 3–4; экран правил — строка
+> про глубину. Телефонный смоук — D9.
+
 ---
 
 ### D6. Логирование запросов/ответов TMDB (флаг в local.properties)
@@ -276,6 +284,15 @@ RateLimitInterceptor), паттерн `local.properties` →
 
 **Результат.** Полная картина запросов TMDB для следующих
 телефонных итераций — без ручного копания по Logcat.
+
+> Статус: ✅ код завершён (unit-тесты, detekt, lint, release — зелёные).
+> `tmdb.logging` → `BuildConfig.TMDB_LOGGING` (default false);
+> `TmdbRequestLogInterceptor` на TMDB-клиенте — устанавливается в DI
+> только при включённом флаге (выкл → нулевой overhead). Формат строки:
+> `время | метод | URL (api_key=***) | код | N ms | размеры` + body
+> запроса/ответа (обрезка 200 КБ); ротация файла 10 МБ; запись не
+> ломает запрос. 6 тестов MockWebServer. Файл — `filesDir/tmdb_requests.log`,
+> `adb pull` — README. Проверка на реальном устройстве — D9.
 
 ---
 
@@ -320,6 +337,17 @@ RateLimitInterceptor), паттерн `local.properties` →
 
 **Результат.** На телефоне: старт глубины 2 — пара мгновенно, 0
 запросов к TMDB (проверяется логом D6).
+
+> Статус: ✅ код завершён (unit-тесты, detekt, lint, release — зелёные).
+> `data/bank/PairBank` + `PairBankLoader` (singleton в DI): ассет
+> `pairs_bank_v1.json` парсится один раз, индекс по глубинам;
+> файл отсутствует/бит → пустой банк + `Log.w` (без краша, fallback).
+> Тесты: 7 тестов загрузчика + цепочка выбора (d=2 → пара из банка,
+> 0 вызовов репозиториев; непокрытая глубина → онлайн).
+> С D8 выбор «банк/онлайн» вынесен в стратегии `PairSource`
+> (см. D8): D7-флаг `pairBank.enabled` заменён на `pairSource`.
+> Ассет — после полного запуска D4 (VPN + ключ) скопировать в
+> `app/src/main/assets/`; без него app работает (fallback на онлайн).
 
 ---
 
@@ -406,6 +434,23 @@ RateLimitInterceptor), паттерн `local.properties` →
 **Результат.** «Откуда брать пару» — одна строка в `local.properties`
 (rebuild); микросервис (P3) подключается как новая стратегия без
 касания игрового потока; дефолт `auto` = поведение MVP после D7.
+
+> Статус: ✅ код завершён (unit-тесты, detekt, lint, release — зелёные).
+> Домен: `domain/repository/PairSource.pick(config, seed)`. Data:
+> `data/pairsource/` — `OnlinePairSource` (адаптер над
+> `GamePairRepositoryImpl`: бюджеты D1, d=2-поиск D5, toDomain),
+> `BankPairSource` (строго: непокрытая глубина → `NoValidPair`, без
+> fallback), `RemotePairSource` (заглушка: понятный `DataError` —
+> «микросервис пар ещё не подключён», без краша), `AutoPairSource`
+> (банк покрывает глубину → банк, 0 запросов; иначе → онлайн).
+> `GamePairRepositoryImpl` очищен от банка — режим `online` ≡ текущему
+> поведению. DI: `PairSourceModule` — `when` по `BuildConfig.PAIR_SOURCE`
+> (unknown → `auto` + `Log.w`); `local.properties`: `pairSource`
+> (default `auto`) — заменяет D7-флаг `pairBank.enabled`.
+> `StartGameUseCase` знает только `PairSource` (конфиг точной глубины +
+> seed). Тесты: каждая стратегия, DI-выбор (4 значения + unknown),
+> use case, Hilt-граф. `PairGenerator` (пуловой BFS) — вне старта,
+> зафиксирован как основа P4 (docs/04_algorithms.md §5.4).
 
 ---
 

@@ -34,7 +34,16 @@ data class PairGenConfig(
     val allowTrivial: Boolean = false,
     val requireReverseReachability: Boolean = false,
     val deadEndSearchDepth: Int = 8,
-)
+) {
+
+    /**
+     * D5 (docs/debugging.md): конфигурация пары **точной глубины** —
+     * `minSteps = maxSteps = depth`. Генератор примет только пару, чей
+     * кратчайший путь ровно длины [depth] (короткие — как тривиальные).
+     */
+    fun forDepth(depth: Int): PairGenConfig =
+        copy(minSteps = depth, maxSteps = depth)
+}
 
 /** Причина отказа генератора (docs/04_algorithms.md §3.2). */
 enum class PairFailReason {

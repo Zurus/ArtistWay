@@ -1,16 +1,21 @@
 package com.zurus.cinethread.di
 
+import android.content.Context
 import com.zurus.cinethread.core.common.Clock
 import com.zurus.cinethread.core.common.DefaultDispatcher
 import com.zurus.cinethread.core.common.GenerationBudget
 import com.zurus.cinethread.core.common.IoDispatcher
 import com.zurus.cinethread.core.common.MainDispatcher
+import com.zurus.cinethread.core.common.SetupDepthPrefs
+import com.zurus.cinethread.core.common.SharedPreferencesSetupDepthPrefs
+import com.zurus.cinethread.data.bank.PairBankLoader
 import com.zurus.cinethread.data.time.Clock as DataClock
 import com.zurus.cinethread.domain.util.Budget
 import com.zurus.cinethread.domain.util.PairGenConfig
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -56,6 +61,32 @@ object AppModule {
     @Provides
     @Singleton
     fun providePairGenConfig(): PairGenConfig = PairGenConfig()
+
+    /**
+     * D5 (docs/debugging.md): выбор глубины пары на стартовом экране
+     * сохраняется между запусками (SharedPreferences).
+     */
+    @Provides
+    @Singleton
+    fun provideSetupDepthPrefs(
+        @ApplicationContext context: Context,
+    ): SetupDepthPrefs = SharedPreferencesSetupDepthPrefs(context)
+
+    /**
+     * D7/D8 (docs/debugging.md): загрузчик банка пар — ассет
+     * `pairs_bank_v1.json` (генерация скриптом D4). С D8 банк всегда
+     * «включён» для загрузчика: использовать ли его решает стратегия
+     * [com.zurus.cinethread.domain.repository.PairSource] (`BuildConfig.PAIR_SOURCE`),
+     * а не флаг загрузчика.
+     */
+    @Provides
+    @Singleton
+    fun providePairBankLoader(
+        @ApplicationContext context: Context,
+    ): PairBankLoader = PairBankLoader(
+        enabled = true,
+        assetReader = { name -> context.assets.open(name) },
+    )
 
     /**
      * Фабрика: каждый вызов — свежий (мутабельный) [Budget] со строгим

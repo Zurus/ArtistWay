@@ -15,6 +15,8 @@ import com.zurus.cinethread.domain.repository.GamePairRepository
 import com.zurus.cinethread.domain.repository.GameSessionRepository
 import com.zurus.cinethread.domain.repository.MovieRepository
 import com.zurus.cinethread.domain.repository.PairGenerationError
+import com.zurus.cinethread.domain.repository.PairSource
+import com.zurus.cinethread.domain.util.PairGenConfig
 
 /**
  * В-памяти граф «актёр ↔ фильм» для unit-тестов Этапа 3
@@ -210,8 +212,45 @@ class FakeGamePairRepository(
 
     var lastSeed: Long? = Long.MIN_VALUE
 
-    override suspend fun generatePair(seed: Long?): Result<GamePair, PairGenerationError> {
+    /** Последняя запрошенная глубина пары (D5). */
+    var lastDepth: Int = 2
+
+    override suspend fun generatePair(
+        seed: Long?,
+        depth: Int,
+    ): Result<GamePair, PairGenerationError> {
         lastSeed = seed
+        lastDepth = depth
+        return outcome
+    }
+}
+
+/**
+ * D8 (docs/debugging.md): тестовый [PairSource] — фиксирует последний
+ * конфиг (глубина = `config.maxSteps`) и сид, отдаёт заранее заданный
+ * [outcome].
+ */
+class FakePairSource(
+    var outcome: Result<GamePair, PairGenerationError> = Result.failure(PairGenerationError.NoValidPair),
+) : PairSource {
+
+    var lastSeed: Long? = Long.MIN_VALUE
+
+    var lastConfig: PairGenConfig? = null
+
+    /** Глубина последнего `pick` (конфиг точной глубины, D5/D8). */
+    val lastDepth: Int
+        get() = lastConfig?.maxSteps ?: 2
+
+    var pickCount: Int = 0
+
+    override suspend fun pick(
+        config: PairGenConfig,
+        seed: Long?,
+    ): Result<GamePair, PairGenerationError> {
+        pickCount += 1
+        lastSeed = seed
+        lastConfig = config
         return outcome
     }
 }
